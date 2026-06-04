@@ -26,7 +26,14 @@ CREATE TABLE IF NOT EXISTS match_results (
     updated_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Desactiva RLS en las tres tablas (la app usa la service_role key, no la anon key)
+CREATE TABLE IF NOT EXISTS sessions (
+    token       TEXT PRIMARY KEY,
+    user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at  TIMESTAMPTZ NOT NULL
+);
+
+-- Desactiva RLS en todas las tablas (la app usa la service_role key, no la anon key)
 ALTER TABLE users         DISABLE ROW LEVEL SECURITY;
 ALTER TABLE predictions   DISABLE ROW LEVEL SECURITY;
 ALTER TABLE match_results DISABLE ROW LEVEL SECURITY;
+ALTER TABLE sessions      DISABLE ROW LEVEL SECURITY;

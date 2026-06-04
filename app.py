@@ -5,16 +5,12 @@ from pathlib import Path
 from collections import defaultdict
 from datetime import datetime, timedelta
 
-import extra_streamlit_components as stx
-
 from database import (
     init_db, create_user, authenticate, get_user_by_username,
     save_prediction, get_predictions, get_all_predictions, get_users,
     delete_user, set_match_result, get_match_results, clear_match_result, clear_all_results,
+    create_session, validate_session, delete_session,
 )
-
-AUTH_COOKIE  = "pilarico_auth"
-COOKIE_DAYS  = 30
 from football_api import (
     get_matches, get_live_ids, calculate_points, get_flag,
     get_group_standings, GROUPS, STATUS_DONE, STATUS_LIVE,
@@ -25,7 +21,7 @@ from football_api import (
 st.set_page_config(
     page_title="⚽ Mundial Pilarico 2026",
     page_icon="⚽",
-    layout="wide",
+    layout="centered",
     initial_sidebar_state="collapsed",
 )
 
@@ -271,14 +267,14 @@ def compute_user_stats(user_id: int, matches: list, live_ids: set):
 
 # ── Auth ──────────────────────────────────────────────────────────────────
 
-def _login(cm, user: dict):
-    """Set session state + cookie."""
+def _login(user: dict):
+    token = create_session(user["id"])
     st.session_state["user"] = user
-    cm.set(AUTH_COOKIE, user["username"],
-           expires_at=datetime.now() + timedelta(days=COOKIE_DAYS))
+    st.session_state["_token"] = token
+    st.query_params["t"] = token
 
 
-def show_auth(cm):
+def show_auth():
     _render_header()
 
     t_in, t_reg = st.tabs(["🔑  Iniciar sesión", "📝  Registrarse"])
@@ -292,7 +288,7 @@ def show_auth(cm):
         if ok:
             result = authenticate(u, p)
             if result:
-                _login(cm, result)
+                _login(result)
                 st.rerun()
             else:
                 st.error("Usuario o contraseña incorrectos.")
@@ -314,7 +310,7 @@ def show_auth(cm):
             else:
                 created, err = create_user(nu, np)
                 if created:
-                    _login(cm, authenticate(nu, np))
+                    _login(authenticate(nu, np))
                     st.success("¡Cuenta creada! 🎉")
                     st.rerun()
                 else:
@@ -323,7 +319,7 @@ def show_auth(cm):
 
 # ── Sidebar ───────────────────────────────────────────────────────────────
 
-def show_sidebar(cm, user_name: str, pts: int, live_pts: int):
+def show_sidebar(user_name: str, pts: int, live_pts: int):
     with st.sidebar:
         st.markdown(f"""
         <div style="padding:1rem 0 .5rem;text-align:center">
@@ -354,8 +350,11 @@ def show_sidebar(cm, user_name: str, pts: int, live_pts: int):
 
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("🚪  Cerrar sesión", use_container_width=True):
-            cm.delete(AUTH_COOKIE)
+            token = st.session_state.pop("_token", None)
+            if token:
+                delete_session(token)
             del st.session_state["user"]
+            st.query_params.clear()
             st.rerun()
 
 
@@ -664,7 +663,7 @@ def show_admin(current_user: dict, matches: list):
 
 # ── Main app ──────────────────────────────────────────────────────────────
 
-def show_app(cm):
+def show_app():
     user = st.session_state["user"]
 
     raw_matches = get_matches()
@@ -673,7 +672,7 @@ def show_app(cm):
     live_ids    = get_live_ids()
 
     pts, live_pts, _ = compute_user_stats(user["id"], matches, live_ids)
-    show_sidebar(cm, user["username"], pts, live_pts)
+    show_sidebar(user["username"], pts, live_pts)
 
     _render_header()
 
@@ -708,24 +707,19 @@ def show_app(cm):
 # ── Entry point ───────────────────────────────────────────────────────────
 
 def main():
-    cm = stx.CookieManager(key="pilarico_cm")
-
-    # CookieManager requires one render cycle to initialize before cookies
-    # are readable. Force that cycle on new sessions, then check normally.
-    if not st.session_state.get("_cm_ready"):
-        st.session_state["_cm_ready"] = True
-        st.rerun()
-
     if "user" not in st.session_state:
-        saved = cm.get(AUTH_COOKIE)
-        if saved:
-            user = get_user_by_username(saved)
+        token = st.query_params.get("t")
+        if token:
+            user = validate_session(token)
             if user:
                 st.session_state["user"] = user
-                st.rerun()
-        show_auth(cm)
-    else:
-        show_app(cm)
+                st.session_state["_token"] = token
+            else:
+                st.query_params.clear()
+        if "user" not in st.session_state:
+            show_auth()
+            return
+    show_app()
 
 
 main()

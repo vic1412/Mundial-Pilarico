@@ -1,7 +1,8 @@
 import hashlib
 import sqlite3
+import uuid
 import streamlit as st
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -65,7 +66,6 @@ def _hash(pw: str) -> str:
 
 def init_db():
     if _use_supabase():
-        # Smoke-test: will surface a clear error if tables don't exist or key is wrong
         _sb(lambda: _db().table("users").select("id").limit(1).execute())
         return
     with _conn() as c:
@@ -92,6 +92,12 @@ def init_db():
                 away_score INTEGER NOT NULL,
                 status TEXT NOT NULL DEFAULT 'FT',
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+            CREATE TABLE IF NOT EXISTS sessions (
+                token TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                expires_at TIMESTAMP NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id)
             );
         """)
 
@@ -261,3 +267,50 @@ def clear_all_results():
         return
     with _conn() as c:
         c.execute("DELETE FROM match_results")
+
+
+# ── Sessions ───────────────────────────────────────────────────────────────
+
+def create_session(user_id: int) -> str:
+    token = str(uuid.uuid4())
+    expires = (datetime.utcnow() + timedelta(days=30)).isoformat()
+    if _use_supabase():
+        db = _db()
+        _sb(lambda: db.table("sessions").delete().eq("user_id", user_id).execute())
+        _sb(lambda: db.table("sessions").insert(
+            {"token": token, "user_id": user_id, "expires_at": expires}).execute())
+    else:
+        with _conn() as c:
+            c.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
+            c.execute("INSERT INTO sessions (token, user_id, expires_at) VALUES (?,?,?)",
+                      (token, user_id, expires))
+    return token
+
+
+def validate_session(token: str) -> dict | None:
+    if not token:
+        return None
+    if _use_supabase():
+        db = _db()
+        res = _sb(lambda: db.table("sessions").select("user_id").eq("token", token).execute())
+        if not res.data:
+            return None
+        uid = res.data[0]["user_id"]
+        res2 = _sb(lambda: db.table("users").select("id,username").eq("id", uid).execute())
+        return res2.data[0] if res2.data else None
+    with _conn() as c:
+        row = c.execute("""
+            SELECT u.id, u.username FROM sessions s
+            JOIN users u ON s.user_id=u.id
+            WHERE s.token=? AND s.expires_at > ?
+        """, (token, datetime.utcnow().isoformat())).fetchone()
+    return dict(row) if row else None
+
+
+def delete_session(token: str):
+    if _use_supabase():
+        db = _db()
+        _sb(lambda: db.table("sessions").delete().eq("token", token).execute())
+    else:
+        with _conn() as c:
+            c.execute("DELETE FROM sessions WHERE token=?", (token,))
