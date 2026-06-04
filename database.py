@@ -23,6 +23,26 @@ def _db():
     return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
 
 
+def _sb(fn):
+    """Run a Supabase lambda and surface actionable errors instead of crashing."""
+    try:
+        return fn()
+    except Exception as e:
+        msg = str(e)
+        if "does not exist" in msg:
+            hint = "Las tablas no existen. Ejecuta **setup_supabase.sql** en el SQL Editor de Supabase."
+        elif "row-level security" in msg or "permission denied" in msg:
+            hint = "Error de permisos. Usa la clave **service_role** (no la `anon key`) en `SUPABASE_KEY`."
+        elif "Invalid API key" in msg or "401" in msg:
+            hint = "API key inválida. Verifica `SUPABASE_KEY` en los secrets de Streamlit Cloud."
+        elif "connect" in msg.lower() or "timeout" in msg.lower():
+            hint = "No se puede conectar a Supabase. Verifica `SUPABASE_URL`."
+        else:
+            hint = f"`{msg}`"
+        st.error(f"⚠️ **Error Supabase:** {hint}")
+        st.stop()
+
+
 # ── SQLite helpers ──────────────────────────────────────────────────────────
 
 _DB_PATH = Path(__file__).parent / "mundial2026.db"
@@ -40,7 +60,9 @@ def _hash(pw: str) -> str:
 
 def init_db():
     if _use_supabase():
-        return  # Tables pre-created in Supabase (run setup_supabase.sql)
+        # Smoke-test: will surface a clear error if tables don't exist or key is wrong
+        _sb(lambda: _db().table("users").select("id").limit(1).execute())
+        return
     with _conn() as c:
         c.executescript("""
             CREATE TABLE IF NOT EXISTS users (
@@ -75,9 +97,11 @@ def create_user(username: str, password: str) -> tuple[bool, str | None]:
     username = username.strip()
     if _use_supabase():
         db = _db()
-        if db.table("users").select("id").eq("username", username).execute().data:
+        existing = _sb(lambda: db.table("users").select("id").eq("username", username).execute())
+        if existing.data:
             return False, "Ese usuario ya existe."
-        db.table("users").insert({"username": username, "password_hash": _hash(password)}).execute()
+        _sb(lambda: db.table("users").insert(
+            {"username": username, "password_hash": _hash(password)}).execute())
         return True, None
     try:
         with _conn() as c:
@@ -91,8 +115,9 @@ def create_user(username: str, password: str) -> tuple[bool, str | None]:
 def authenticate(username: str, password: str) -> dict | None:
     username = username.strip()
     if _use_supabase():
-        res = (_db().table("users").select("id,username")
-               .eq("username", username).eq("password_hash", _hash(password)).execute())
+        db = _db()
+        res = _sb(lambda: db.table("users").select("id,username")
+                  .eq("username", username).eq("password_hash", _hash(password)).execute())
         return res.data[0] if res.data else None
     with _conn() as c:
         row = c.execute(
@@ -103,7 +128,8 @@ def authenticate(username: str, password: str) -> dict | None:
 
 def get_user_by_username(username: str) -> dict | None:
     if _use_supabase():
-        res = _db().table("users").select("id,username").eq("username", username).execute()
+        db = _db()
+        res = _sb(lambda: db.table("users").select("id,username").eq("username", username).execute())
         return res.data[0] if res.data else None
     with _conn() as c:
         row = c.execute("SELECT id, username FROM users WHERE username=?", (username,)).fetchone()
@@ -112,7 +138,8 @@ def get_user_by_username(username: str) -> dict | None:
 
 def get_users() -> list:
     if _use_supabase():
-        return _db().table("users").select("id,username,created_at").order("created_at").execute().data
+        db = _db()
+        return _sb(lambda: db.table("users").select("id,username,created_at").order("created_at").execute()).data
     with _conn() as c:
         rows = c.execute("SELECT id, username, created_at FROM users ORDER BY created_at").fetchall()
     return [dict(r) for r in rows]
@@ -121,8 +148,8 @@ def get_users() -> list:
 def delete_user(user_id: int):
     if _use_supabase():
         db = _db()
-        db.table("predictions").delete().eq("user_id", user_id).execute()
-        db.table("users").delete().eq("id", user_id).execute()
+        _sb(lambda: db.table("predictions").delete().eq("user_id", user_id).execute())
+        _sb(lambda: db.table("users").delete().eq("id", user_id).execute())
         return
     with _conn() as c:
         c.execute("DELETE FROM predictions WHERE user_id=?", (user_id,))
@@ -133,9 +160,10 @@ def delete_user(user_id: int):
 
 def save_prediction(user_id: int, match_id: str, home: int, away: int):
     if _use_supabase():
-        _db().table("predictions").upsert(
+        db = _db()
+        _sb(lambda: db.table("predictions").upsert(
             {"user_id": user_id, "match_id": match_id, "home_goals": home, "away_goals": away},
-            on_conflict="user_id,match_id").execute()
+            on_conflict="user_id,match_id").execute())
         return
     with _conn() as c:
         c.execute("""
@@ -150,8 +178,9 @@ def save_prediction(user_id: int, match_id: str, home: int, away: int):
 
 def get_predictions(user_id: int) -> dict:
     if _use_supabase():
-        res = (_db().table("predictions").select("match_id,home_goals,away_goals")
-               .eq("user_id", user_id).execute())
+        db = _db()
+        res = _sb(lambda: db.table("predictions").select("match_id,home_goals,away_goals")
+                  .eq("user_id", user_id).execute())
         return {r["match_id"]: (r["home_goals"], r["away_goals"]) for r in res.data}
     with _conn() as c:
         rows = c.execute(
@@ -163,7 +192,8 @@ def get_predictions(user_id: int) -> dict:
 def get_all_predictions() -> list:
     if _use_supabase():
         db = _db()
-        preds = db.table("predictions").select("user_id,match_id,home_goals,away_goals").execute().data
+        preds = _sb(lambda: db.table("predictions")
+                    .select("user_id,match_id,home_goals,away_goals").execute()).data
         users_map = {u["id"]: u["username"] for u in get_users()}
         for p in preds:
             p["username"] = users_map.get(p["user_id"], "?")
@@ -180,9 +210,11 @@ def get_all_predictions() -> list:
 
 def set_match_result(match_id: str, home_score: int, away_score: int, status: str = "FT"):
     if _use_supabase():
-        _db().table("match_results").upsert(
-            {"match_id": match_id, "home_score": home_score, "away_score": away_score, "status": status},
-            on_conflict="match_id").execute()
+        db = _db()
+        _sb(lambda: db.table("match_results").upsert(
+            {"match_id": match_id, "home_score": home_score,
+             "away_score": away_score, "status": status},
+            on_conflict="match_id").execute())
         return
     with _conn() as c:
         c.execute("""
@@ -198,7 +230,9 @@ def set_match_result(match_id: str, home_score: int, away_score: int, status: st
 
 def get_match_results() -> dict:
     if _use_supabase():
-        res = _db().table("match_results").select("match_id,home_score,away_score,status").execute()
+        db = _db()
+        res = _sb(lambda: db.table("match_results")
+                  .select("match_id,home_score,away_score,status").execute())
         return {r["match_id"]: r for r in res.data}
     with _conn() as c:
         rows = c.execute(
@@ -208,7 +242,8 @@ def get_match_results() -> dict:
 
 def clear_match_result(match_id: str):
     if _use_supabase():
-        _db().table("match_results").delete().eq("match_id", match_id).execute()
+        db = _db()
+        _sb(lambda: db.table("match_results").delete().eq("match_id", match_id).execute())
         return
     with _conn() as c:
         c.execute("DELETE FROM match_results WHERE match_id=?", (match_id,))
@@ -216,7 +251,8 @@ def clear_match_result(match_id: str):
 
 def clear_all_results():
     if _use_supabase():
-        _db().table("match_results").delete().neq("match_id", "").execute()
+        db = _db()
+        _sb(lambda: db.table("match_results").delete().neq("match_id", "").execute())
         return
     with _conn() as c:
         c.execute("DELETE FROM match_results")
