@@ -5,13 +5,14 @@ import streamlit as st
 # Special flags (subdivision flags — England, Scotland, Wales)
 # ---------------------------------------------------------------------------
 
-SPECIAL_FLAGS: dict[str, str] = {
-    "England": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
-    "Inglaterra": "🏴󠁧󠁢󠁥󠁮󠁧󠁿",
-    "Scotland": "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
-    "Escocia": "🏴󠁧󠁢󠁳󠁣󠁴󠁿",
-    "Wales": "🏴󠁧󠁢󠁷󠁬󠁳󠁿",
-    "Gales": "🏴󠁧󠁢󠁷󠁬󠁳󠁿",
+# flagcdn.com codes for subdivision flags (not sovereign states)
+_SUBDIV_CODES: dict[str, str] = {
+    "England":    "gb-eng",
+    "Inglaterra": "gb-eng",
+    "Scotland":   "gb-sct",
+    "Escocia":    "gb-sct",
+    "Wales":      "gb-wls",
+    "Gales":      "gb-wls",
 }
 
 COUNTRY_CODES: dict[str, str] = {
@@ -83,13 +84,20 @@ COUNTRY_CODES: dict[str, str] = {
 
 
 def get_flag(country: str) -> str:
-    if country in SPECIAL_FLAGS:
-        return SPECIAL_FLAGS[country]
-    code = COUNTRY_CODES.get(country, country[:2].upper() if len(country) >= 2 else "??")
-    try:
-        return "".join(chr(ord(c) + 127397) for c in code[:2].upper())
-    except Exception:
-        return "🏳"
+    """Returns an <img> flag from flagcdn.com — renders identically on all devices/browsers."""
+    subdiv = _SUBDIV_CODES.get(country)
+    if subdiv:
+        code = subdiv
+    else:
+        iso = COUNTRY_CODES.get(country, "")
+        if not iso:
+            return "🏳"
+        code = iso.lower()
+    return (
+        f'<img src="https://flagcdn.com/20x15/{code}.png" '
+        f'style="height:15px;width:auto;vertical-align:middle;margin-bottom:1px" '
+        f'loading="lazy">'
+    )
 
 
 # ---------------------------------------------------------------------------
