@@ -29,22 +29,11 @@ def _db():
 
 
 def _sb(fn):
-    """Run a Supabase lambda and surface actionable errors instead of crashing."""
+    """Run a Supabase lambda and surface the raw error for diagnosis."""
     try:
         return fn()
     except Exception as e:
-        msg = str(e)
-        if "does not exist" in msg:
-            hint = "Las tablas no existen. Ejecuta **setup_supabase.sql** en el SQL Editor de Supabase."
-        elif "row-level security" in msg or "permission denied" in msg:
-            hint = "Error de permisos. Usa la clave **service_role** (no la `anon key`) en `SUPABASE_KEY`."
-        elif "Invalid API key" in msg or "401" in msg:
-            hint = "API key inválida. Verifica `SUPABASE_KEY` en los secrets de Streamlit Cloud."
-        elif "connect" in msg.lower() or "timeout" in msg.lower():
-            hint = "No se puede conectar a Supabase. Verifica `SUPABASE_URL`."
-        else:
-            hint = f"`{msg}`"
-        st.error(f"⚠️ **Error Supabase:** {hint}")
+        st.error(f"⚠️ **Error Supabase (raw):** `{e}`")
         st.stop()
 
 
