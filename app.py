@@ -710,6 +710,12 @@ def show_app(cm):
 def main():
     cm = stx.CookieManager(key="pilarico_cm")
 
+    # CookieManager requires one render cycle to initialize before cookies
+    # are readable. Force that cycle on new sessions, then check normally.
+    if not st.session_state.get("_cm_ready"):
+        st.session_state["_cm_ready"] = True
+        st.rerun()
+
     if "user" not in st.session_state:
         saved = cm.get(AUTH_COOKIE)
         if saved:
