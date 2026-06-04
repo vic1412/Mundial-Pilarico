@@ -53,59 +53,56 @@ st.markdown("""
 html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 .stApp { background: linear-gradient(160deg,#070f1e 0%,#0d1b33 55%,#091525 100%); }
 #MainMenu, footer, header { visibility: hidden; }
+.block-container { padding: 1.2rem 1rem 2rem !important; max-width: 860px !important; }
 
 /* ── Title ── */
-.app-header {
-    display:flex; align-items:center; justify-content:center;
-    gap:14px; margin-bottom:1.2rem;
-}
-.app-logo {
-    width:68px; height:68px; object-fit:cover;
-    border-radius:50%; border:2px solid #FFD700;
-    box-shadow:0 0 12px rgba(255,215,0,.35);
-}
-.app-title {
-    text-align:center; font-family:'Oswald',sans-serif;
-    font-size:clamp(1.6rem,5vw,2.8rem); font-weight:700; letter-spacing:2px;
-    background:linear-gradient(90deg,#FFD700 0%,#FFA500 50%,#FFD700 100%);
-    -webkit-background-clip:text; -webkit-text-fill-color:transparent;
-    background-clip:text; margin:0;
-}
-.app-subtitle {
-    text-align:center; color:rgba(255,255,255,.4);
-    font-size:.82rem; letter-spacing:4px; text-transform:uppercase; margin:2px 0 0;
-}
+.app-header { display:flex; align-items:center; justify-content:center; gap:12px; margin-bottom:1rem; }
+.app-logo   { width:60px; height:60px; object-fit:cover; border-radius:50%;
+              border:2px solid #FFD700; box-shadow:0 0 12px rgba(255,215,0,.35); flex-shrink:0; }
+.app-title  { font-family:'Oswald',sans-serif; font-size:clamp(1.3rem,5vw,2.4rem);
+              font-weight:700; letter-spacing:1.5px;
+              background:linear-gradient(90deg,#FFD700 0%,#FFA500 50%,#FFD700 100%);
+              -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+              background-clip:text; margin:0; }
+.app-subtitle { color:rgba(255,255,255,.4); font-size:.75rem;
+                letter-spacing:3px; text-transform:uppercase; margin:2px 0 0; }
 
 /* ── Match card ── */
-.match-card {
-    background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
-    border-radius:14px; padding:12px 14px 8px; margin-bottom:8px;
-}
-.match-card:hover { border-color:rgba(255,215,0,.22); }
-.match-card-live  { border-color:rgba(0,255,100,.3)!important; box-shadow:0 0 10px rgba(0,255,100,.08); }
-.match-card-done  { opacity:.9; }
+.match-card { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08);
+              border-radius:12px; padding:10px 12px 6px; margin-bottom:6px; }
+.match-card:hover   { border-color:rgba(255,215,0,.22); }
+.match-card-live    { border-color:rgba(0,255,100,.3)!important; box-shadow:0 0 10px rgba(0,255,100,.08); }
+.match-card-done    { opacity:.9; }
+.mc-meta  { display:flex; justify-content:space-between; font-size:.66rem;
+            color:rgba(255,255,255,.3); margin-bottom:6px; }
+.mc-teams { display:flex; align-items:center; justify-content:space-between; gap:4px; }
+.mc-home  { display:flex; align-items:center; gap:5px; flex:1; min-width:0;
+            font-family:'Oswald',sans-serif; font-size:.88rem; font-weight:600;
+            text-transform:uppercase; letter-spacing:.3px; }
+.mc-away  { display:flex; align-items:center; justify-content:flex-end; gap:5px;
+            flex:1; min-width:0; font-family:'Oswald',sans-serif; font-size:.88rem;
+            font-weight:600; text-transform:uppercase; letter-spacing:.3px; text-align:right; }
+.mc-tname { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mc-score { font-family:'Oswald',sans-serif; font-size:.82rem; font-weight:600;
+            color:rgba(255,255,255,.65); white-space:nowrap; flex-shrink:0; padding:0 3px; }
+.mc-vs    { font-size:.75rem; color:rgba(255,255,255,.25); white-space:nowrap;
+            flex-shrink:0; padding:0 4px; }
+.pred-center { text-align:center; font-family:'Oswald',sans-serif;
+               font-size:1.25rem; font-weight:700; padding:4px 0; }
+.pred-dash   { text-align:center; color:rgba(255,255,255,.3); font-size:.95rem; padding-top:9px; }
+.pred-none   { color:rgba(255,255,255,.18); text-align:center; font-size:.7rem; padding-top:10px; }
 
 /* ── Group header ── */
-.group-label {
-    font-family:'Oswald',sans-serif; color:#FFD700; font-size:.88rem;
-    letter-spacing:1.5px; text-transform:uppercase;
-    border-left:3px solid #FFD700; padding-left:8px; margin:16px 0 6px;
-}
-
-/* ── Team names ── */
-.team-r { display:flex; align-items:center; justify-content:flex-end;
-           gap:6px; font-family:'Oswald',sans-serif; font-size:.95rem;
-           font-weight:600; letter-spacing:.5px; text-transform:uppercase; }
-.team-l { display:flex; align-items:center; gap:6px;
-           font-family:'Oswald',sans-serif; font-size:.95rem;
-           font-weight:600; letter-spacing:.5px; text-transform:uppercase; }
+.group-label { font-family:'Oswald',sans-serif; color:#FFD700; font-size:.85rem;
+               letter-spacing:1.5px; text-transform:uppercase;
+               border-left:3px solid #FFD700; padding-left:8px; margin:14px 0 5px; }
 
 /* ── Points badge ── */
-.pts { display:inline-block; padding:3px 12px; border-radius:20px;
-       font-family:'Oswald',sans-serif; font-size:.98rem; font-weight:700;
-       min-width:52px; text-align:center; }
+.pts { display:inline-block; padding:3px 10px; border-radius:20px;
+       font-family:'Oswald',sans-serif; font-size:.92rem; font-weight:700;
+       min-width:48px; text-align:center; }
 .pts-live { background:rgba(0,230,80,.18); color:#00e664; border:1px solid rgba(0,230,80,.5);
-             animation:glow 1.4s ease-in-out infinite alternate; }
+            animation:glow 1.4s ease-in-out infinite alternate; }
 .pts-4 { background:rgba(255,215,0,.18); color:#FFD700;  border:1px solid rgba(255,215,0,.4); }
 .pts-3 { background:rgba(100,200,255,.15); color:#64c8ff; border:1px solid rgba(100,200,255,.3); }
 .pts-2 { background:rgba(200,200,200,.12); color:#d0d0d0; border:1px solid rgba(200,200,200,.25); }
@@ -113,93 +110,84 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 @keyframes glow { from{box-shadow:0 0 4px rgba(0,230,80,.3)} to{box-shadow:0 0 12px rgba(0,230,80,.7)} }
 
 /* ── Live badge ── */
-.live-tag { display:inline-block; background:#e02020; color:#fff;
-             font-size:.63rem; font-weight:700; letter-spacing:1px;
-             padding:1px 7px; border-radius:4px; animation:glow 1s infinite alternate; }
+.live-tag { display:inline-block; background:#e02020; color:#fff; font-size:.6rem;
+            font-weight:700; letter-spacing:1px; padding:1px 6px; border-radius:4px;
+            animation:glow 1s infinite alternate; }
 
 /* ── Leaderboard ── */
-.lb-row { display:flex; align-items:center; justify-content:space-between;
-           background:rgba(255,255,255,.04); border-radius:10px; padding:12px 18px; margin:5px 0; }
-.lb-rank { font-family:'Oswald',sans-serif; font-size:1.4rem; font-weight:700; width:34px; }
-.lb-name { font-family:'Oswald',sans-serif; font-size:1.1rem; font-weight:600; flex:1; padding-left:10px; }
-.lb-pts  { font-family:'Oswald',sans-serif; font-size:1.4rem; font-weight:700; color:#FFD700; }
-.lb-meta { font-size:.73rem; color:rgba(255,255,255,.4); text-align:right; }
+.lb-row    { display:flex; align-items:center; background:rgba(255,255,255,.04);
+             border-radius:10px; padding:11px 14px; margin:5px 0; }
+.lb-rank   { font-family:'Oswald',sans-serif; font-size:1.3rem; font-weight:700; width:32px; flex-shrink:0; }
+.lb-name   { font-family:'Oswald',sans-serif; font-size:1rem; font-weight:600;
+             flex:1; padding-left:8px; min-width:0; overflow:hidden; text-overflow:ellipsis; }
+.lb-pts    { font-family:'Oswald',sans-serif; font-size:1.3rem; font-weight:700; color:#FFD700; flex-shrink:0; }
+.lb-meta   { font-size:.7rem; color:rgba(255,255,255,.4); text-align:right; white-space:nowrap; }
 .lb-gold   { border-left:4px solid #FFD700; }
 .lb-silver { border-left:4px solid #C0C0C0; }
 .lb-bronze { border-left:4px solid #CD7F32; }
 .lb-other  { border-left:4px solid rgba(255,255,255,.08); }
 
 /* ── Group standings table ── */
-.gs-table { width:100%; border-collapse:collapse; font-size:.85rem; }
-.gs-table th { color:rgba(255,215,0,.8); font-family:'Oswald',sans-serif;
-                font-weight:600; letter-spacing:.5px; padding:6px 8px;
-                border-bottom:1px solid rgba(255,215,0,.2); text-align:center; }
+.gs-wrap  { overflow-x:auto; -webkit-overflow-scrolling:touch; }
+.gs-table { width:100%; border-collapse:collapse; font-size:.82rem; }
+.gs-table th { color:rgba(255,215,0,.8); font-family:'Oswald',sans-serif; font-weight:600;
+               letter-spacing:.4px; padding:5px 6px; border-bottom:1px solid rgba(255,215,0,.2);
+               text-align:center; white-space:nowrap; }
 .gs-table th:nth-child(2) { text-align:left; }
-.gs-table td { padding:7px 8px; text-align:center; border-bottom:1px solid rgba(255,255,255,.05); }
-.gs-table td:nth-child(2) { text-align:left; font-weight:500; }
-.gs-row-adv { background:rgba(255,215,0,.05); }
-.gs-row-1   { border-left:3px solid #FFD700; }
-.gs-row-2   { border-left:3px solid rgba(255,215,0,.4); }
-.gs-row-3   { border-left:3px solid rgba(100,180,100,.5); }
+.gs-table td { padding:6px 6px; text-align:center; border-bottom:1px solid rgba(255,255,255,.05); }
+.gs-table td:nth-child(2) { text-align:left; font-weight:500; white-space:nowrap; }
+.gs-row-1 { border-left:3px solid #FFD700; }
+.gs-row-2 { border-left:3px solid rgba(255,215,0,.4); }
+.gs-row-3 { border-left:3px solid rgba(100,180,100,.5); }
 
 /* ── Tabs ── */
-.stTabs [data-baseweb="tab-list"] {
-    background: transparent;
-    gap: 8px;
-    padding: 4px 0;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-}
-.stTabs [data-baseweb="tab"] {
-    color: rgba(255,255,255,.55);
-    font-family: 'Oswald', sans-serif;
-    font-size: .95rem;
-    letter-spacing: .8px;
-    border-radius: 9px;
-    white-space: nowrap;
-    border: 1px solid rgba(255,255,255,.13) !important;
-    background: rgba(255,255,255,.04) !important;
-    padding: 9px 20px !important;
-    min-height: 40px !important;
-    transition: all .18s ease;
-}
-.stTabs [data-baseweb="tab"]:hover {
-    background: rgba(255,255,255,.09) !important;
-    border-color: rgba(255,255,255,.25) !important;
-    color: rgba(255,255,255,.85) !important;
-}
-.stTabs [aria-selected="true"] {
-    background: rgba(255,215,0,.18) !important;
-    color: #FFD700 !important;
-    border: 1px solid rgba(255,215,0,.55) !important;
-    font-weight: 600;
-}
+.stTabs [data-baseweb="tab-list"] { background:transparent; gap:6px; padding:4px 0;
+                                     overflow-x:auto; flex-wrap:nowrap; }
+.stTabs [data-baseweb="tab"] { color:rgba(255,255,255,.55); font-family:'Oswald',sans-serif;
+    font-size:.9rem; letter-spacing:.6px; border-radius:9px; white-space:nowrap;
+    border:1px solid rgba(255,255,255,.13)!important; background:rgba(255,255,255,.04)!important;
+    padding:8px 16px!important; min-height:38px!important; transition:all .18s ease; }
+.stTabs [data-baseweb="tab"]:hover { background:rgba(255,255,255,.09)!important;
+    border-color:rgba(255,255,255,.25)!important; color:rgba(255,255,255,.85)!important; }
+.stTabs [aria-selected="true"] { background:rgba(255,215,0,.18)!important; color:#FFD700!important;
+    border:1px solid rgba(255,215,0,.55)!important; font-weight:600; }
 
 /* ── Inputs / buttons ── */
-input[type="number"] {
-    background:rgba(255,255,255,.08)!important; border:1px solid rgba(255,215,0,.3)!important;
-    color:#fff!important; text-align:center; font-size:1.1rem!important;
-    font-weight:700!important; border-radius:8px!important;
-}
-.stButton>button {
-    background:rgba(255,215,0,.14); color:#FFD700; border:1px solid rgba(255,215,0,.35);
-    border-radius:8px; font-family:'Oswald',sans-serif; letter-spacing:.8px;
-    padding:4px 14px; transition:all .2s;
-}
+input[type="number"] { background:rgba(255,255,255,.08)!important;
+    border:1px solid rgba(255,215,0,.3)!important; color:#fff!important;
+    text-align:center; font-size:1rem!important; font-weight:700!important; border-radius:8px!important; }
+.stButton>button { background:rgba(255,215,0,.14); color:#FFD700; border:1px solid rgba(255,215,0,.35);
+    border-radius:8px; font-family:'Oswald',sans-serif; letter-spacing:.6px;
+    padding:4px 12px; transition:all .2s; }
 .stButton>button:hover { background:rgba(255,215,0,.26); border-color:#FFD700; transform:translateY(-1px); }
 
-/* ── Radio selector (fase) ── */
-.stRadio>div { gap:8px; }
-.stRadio>div>label {
-    background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
-    border-radius:8px; padding:6px 16px; cursor:pointer; transition:all .2s;
-    font-family:'Oswald',sans-serif; font-size:.9rem; letter-spacing:.5px;
-}
+/* ── Radio selector ── */
+.stRadio>div { gap:6px; }
+.stRadio>div>label { background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
+    border-radius:8px; padding:5px 14px; cursor:pointer; transition:all .2s;
+    font-family:'Oswald',sans-serif; font-size:.88rem; letter-spacing:.4px; }
 .stRadio>div>label:has(input:checked) { background:rgba(255,215,0,.18); border-color:#FFD700; color:#FFD700; }
 
 /* ── Sidebar ── */
-section[data-testid="stSidebar"] {
-    background:rgba(7,15,30,.97)!important; border-right:1px solid rgba(255,215,0,.1);
+section[data-testid="stSidebar"] { background:rgba(7,15,30,.97)!important;
+                                    border-right:1px solid rgba(255,215,0,.1); }
+
+/* ── Mobile ── */
+@media (max-width: 640px) {
+    .block-container { padding: 0.75rem 0.6rem 2rem !important; }
+    .app-logo   { width:46px; height:46px; }
+    .app-title  { font-size:1.2rem !important; letter-spacing:1px; }
+    .app-subtitle { font-size:.65rem; letter-spacing:2px; }
+    .mc-tname   { max-width:80px; font-size:.8rem; }
+    .mc-score, .mc-vs { font-size:.72rem; }
+    .stTabs [data-baseweb="tab"] { padding:6px 9px!important; font-size:.75rem!important; letter-spacing:0!important; }
+    .lb-row  { padding:9px 10px; }
+    .lb-rank { font-size:1.1rem; width:26px; }
+    .lb-name { font-size:.9rem; }
+    .lb-pts  { font-size:1.1rem; }
+    .lb-meta { display:none; }
+    .gs-table { font-size:.75rem; }
+    .gs-table td, .gs-table th { padding:4px 4px; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -378,45 +366,40 @@ def render_match(m: dict, user_id: int, user_preds: dict, live_ids: set):
     min_str  = f" {m.get('minute', '')}'" if is_live and m.get("minute") else ""
     live_html = f'<span class="live-tag">🔴 EN VIVO{min_str}</span>' if is_live else ""
 
-    # Card header row
-    st.markdown(f"""
-    <div class="match-card {card_cls}">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
-            <div style="font-size:.7rem;color:rgba(255,255,255,.3);letter-spacing:.5px">{m.get('group','')}</div>
-            <div style="font-size:.7rem;color:rgba(255,255,255,.3)">{fmt_date(m.get('match_date',''))} {live_html}</div>
-        </div>
-    </div>""", unsafe_allow_html=True)
+    score_html = (f'<div class="mc-score">{hs}&nbsp;–&nbsp;{as_}</div>'
+                  if hs is not None and as_ is not None
+                  else '<div class="mc-vs">VS</div>')
 
-    c1, c2, c3, c4, c5, c6, c7 = st.columns([2.8, 1, .4, 1, 2.8, 1.5, 1.2])
+    st.markdown(f"""
+<div class="match-card {card_cls}">
+  <div class="mc-meta">
+    <span>{m.get('group','')}</span>
+    <span>{fmt_date(m.get('match_date',''))} {live_html}</span>
+  </div>
+  <div class="mc-teams">
+    <div class="mc-home">{get_flag(home)}<span class="mc-tname">{home}</span></div>
+    {score_html}
+    <div class="mc-away"><span class="mc-tname">{away}</span>{get_flag(away)}</div>
+  </div>
+</div>""", unsafe_allow_html=True)
+
+    c1, c2, c3, c4 = st.columns([2.5, .6, 2.5, 2.5])
 
     with c1:
-        st.markdown(f'<div class="team-r"><span style="font-size:.9rem;color:#f0f0f0">{home}</span>'
-                    f'<span style="font-size:1.4rem;line-height:1">{get_flag(home)}</span></div>',
-                    unsafe_allow_html=True)
-    with c2:
         if can_edit:
             new_h = st.number_input(" ", 0, 30, pred_h, key=f"h_{mid}", label_visibility="collapsed")
         else:
-            st.markdown(f'<div style="text-align:center;font-family:Oswald,sans-serif;font-size:1.2rem;font-weight:700;padding-top:5px">{pred_h}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="pred-center">{pred_h}</div>', unsafe_allow_html=True)
             new_h = pred_h
+    with c2:
+        st.markdown('<div class="pred-dash">–</div>', unsafe_allow_html=True)
     with c3:
-        st.markdown('<div style="text-align:center;font-family:Oswald,sans-serif;font-size:1.1rem;font-weight:600;color:rgba(255,255,255,.35);padding-top:7px">–</div>', unsafe_allow_html=True)
-    with c4:
         if can_edit:
             new_a = st.number_input("  ", 0, 30, pred_a, key=f"a_{mid}", label_visibility="collapsed")
         else:
-            st.markdown(f'<div style="text-align:center;font-family:Oswald,sans-serif;font-size:1.2rem;font-weight:700;padding-top:5px">{pred_a}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="pred-center">{pred_a}</div>', unsafe_allow_html=True)
             new_a = pred_a
-    with c5:
-        st.markdown(f'<div class="team-l"><span style="font-size:1.4rem;line-height:1">{get_flag(away)}</span>'
-                    f'<span style="font-size:.9rem;color:#f0f0f0">{away}</span></div>',
-                    unsafe_allow_html=True)
-    with c6:
-        if hs is not None and as_ is not None:
-            st.markdown(f'<div style="text-align:center;font-family:Oswald,sans-serif;font-size:1.1rem;font-weight:600;color:rgba(255,255,255,.75);padding-top:5px">⚽ {hs} – {as_}</div>', unsafe_allow_html=True)
-        else:
-            st.markdown('<div style="text-align:center;color:rgba(255,255,255,.18);font-size:.85rem;padding-top:8px">– vs –</div>', unsafe_allow_html=True)
-    with c7:
+    with c4:
         if pts is not None:
             cls = "pts-live" if is_live else PTS_CSS.get(pts, "pts-0")
             st.markdown(f'<div class="pts {cls}" style="margin-top:4px">{pts} pts</div>', unsafe_allow_html=True)
@@ -426,7 +409,7 @@ def render_match(m: dict, user_id: int, user_preds: dict, live_ids: set):
                 st.session_state.pop("user_preds", None)
                 st.toast(f"✅ {home} {new_h}–{new_a} {away}", icon="⚽")
         else:
-            st.markdown('<div style="color:rgba(255,255,255,.18);text-align:center;font-size:.75rem;padding-top:8px">sin pred</div>', unsafe_allow_html=True)
+            st.markdown('<div class="pred-none">sin pred</div>', unsafe_allow_html=True)
 
     if can_edit and pred is not None and (int(new_h) != pred_h or int(new_a) != pred_a):
         if st.button(f"💾 Actualizar", key=f"up_{mid}"):
@@ -490,18 +473,18 @@ def show_group_standings(matches: list):
     standings = get_group_standings(matches)
 
     group_letters = list(GROUPS.keys())
-    cols_per_row = 3
-    rows = [group_letters[i:i+cols_per_row] for i in range(0, len(group_letters), cols_per_row)]
+    cols_per_row = 2
+    group_rows = [group_letters[i:i+cols_per_row] for i in range(0, len(group_letters), cols_per_row)]
 
-    for row in rows:
+    for group_row in group_rows:
         cols = st.columns(cols_per_row)
-        for col, letter in zip(cols, row):
+        for col, letter in zip(cols, group_row):
             grp = f"Grupo {letter}"
             data = standings.get(grp, [])
             with col:
                 st.markdown(f'<div class="group-label" style="margin-top:12px">{grp}</div>',
                             unsafe_allow_html=True)
-                header = "<table class='gs-table'><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>GF</th><th>GC</th><th>DG</th><th>Pts</th></tr></thead><tbody>"
+                header = "<div class='gs-wrap'><table class='gs-table'><thead><tr><th>#</th><th>Equipo</th><th>PJ</th><th>G</th><th>E</th><th>P</th><th>GF</th><th>GC</th><th>DG</th><th>Pts</th></tr></thead><tbody>"
                 rows_html = ""
                 for pos, (team, s) in enumerate(data, 1):
                     adv_cls = "gs-row-1" if pos == 1 else ("gs-row-2" if pos == 2 else ("gs-row-3" if pos == 3 else ""))
@@ -516,7 +499,7 @@ def show_group_standings(matches: list):
                         f"<td><b>{s['Pts']}</b></td>"
                         f"</tr>"
                     )
-                st.markdown(header + rows_html + "</tbody></table>", unsafe_allow_html=True)
+                st.markdown(header + rows_html + "</tbody></table></div>", unsafe_allow_html=True)
 
     st.markdown("""
     <div style="margin-top:1.5rem;font-size:.75rem;color:rgba(255,255,255,.35);text-align:center">
