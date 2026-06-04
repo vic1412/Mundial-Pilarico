@@ -1,0 +1,31 @@
+# Secrets — NUNCA subir al repo
+.streamlit/secrets.toml
+
+# Base de datos local SQLite
+*.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Screenshots de desarrollo
+login-page.png
+predictions-view.png
+after-save.png
+leaderboard.png
+new-predictions.png
+clasificacion-sim.png
+grupos-standings.png
+grupos-lower.png
+grupos-grupoj.png
+dates-check.png
+dates-top.png
+
+# Playwright
+.playwright-mcp/
+
+# OS
+.DS_Store
+Thumbs.db
