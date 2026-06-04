@@ -20,7 +20,12 @@ def _use_supabase() -> bool:
 @st.cache_resource
 def _db():
     from supabase import create_client
-    return create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+    from urllib.parse import urlparse
+    raw = st.secrets["SUPABASE_URL"].strip()
+    parsed = urlparse(raw)
+    # Keep only scheme + host — drop any path/query that breaks the SDK
+    url = f"{parsed.scheme}://{parsed.netloc}"
+    return create_client(url, st.secrets["SUPABASE_KEY"])
 
 
 def _sb(fn):
