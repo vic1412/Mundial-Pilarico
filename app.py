@@ -743,9 +743,14 @@ def show_app():
             unsafe_allow_html=True
         )
 
-    t_pred, t_groups, t_lb, t_admin = st.tabs([
-        "🏆  Pronósticos", "📊  Grupos", "🥇  Clasificación", "⚙️  Admin"
-    ])
+    is_admin = user["username"].lower() == "vic73"
+
+    tab_labels = ["🏆  Pronósticos", "📊  Grupos", "🥇  Clasificación"]
+    if is_admin:
+        tab_labels.append("⚙️  Admin")
+    tabs = st.tabs(tab_labels)
+    t_pred, t_groups, t_lb = tabs[0], tabs[1], tabs[2]
+    t_admin = tabs[3] if is_admin else None
 
     with t_pred:
         show_predictions(user, matches, live_ids)
@@ -753,8 +758,9 @@ def show_app():
         show_group_standings(matches)
     with t_lb:
         show_leaderboard(matches, live_ids)
-    with t_admin:
-        show_admin(user, matches)
+    if is_admin:
+        with t_admin:
+            show_admin(user, matches)
 
     if live_ids:
         import time
