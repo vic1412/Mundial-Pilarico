@@ -1,5 +1,4 @@
 import streamlit as st
-import random
 import base64
 from pathlib import Path
 from collections import defaultdict
@@ -9,10 +8,10 @@ from database import (
     init_db, create_user, authenticate, get_user_by_username,
     save_prediction, get_predictions, get_all_predictions, get_users,
     delete_user, set_match_result, get_match_results, clear_match_result, clear_all_results,
-    create_session, validate_session, delete_session,
+    create_session, validate_session, delete_session, sync_api_results,
 )
 from football_api import (
-    get_matches, get_live_ids, calculate_points, get_flag,
+    get_matches, get_live_ids, fetch_api_matches, calculate_points, get_flag,
     get_group_standings, GROUPS, STATUS_DONE, STATUS_LIVE,
 )
 
@@ -570,6 +569,13 @@ def show_leaderboard(matches: list, live_ids: set):
 
 # ── Admin tab ─────────────────────────────────────────────────────────────
 
+_ALL_ROUNDS = [
+    "Jornada 1", "Jornada 2", "Jornada 3",
+    "Dieciseisavos", "Octavos", "Cuartos de Final", "Semifinal", "Final",
+]
+_STATUS_OPTS = ["FT", "AET", "PEN", "1H", "2H", "HT", "ET"]
+
+
 def show_admin(current_user: dict, matches: list):
     st.markdown("### ⚙️ Administración")
 
@@ -590,56 +596,119 @@ def show_admin(current_user: dict, matches: list):
                 st.rerun()
 
     st.markdown("---")
+    st.markdown("### ⚽ Ingresar resultado real")
+    st.markdown(
+        "<div style='font-size:.8rem;color:rgba(255,255,255,.45);margin-bottom:1rem'>"
+        "Ingresa los resultados reales de los partidos para calcular los puntos. "
+        "Los resultados manuales tienen prioridad sobre la API automática.</div>",
+        unsafe_allow_html=True,
+    )
 
-    # ── Simulate / set match result ──
-    with st.expander("⚽ Simular resultado de partido", expanded=True):
-        gs_matches = [m for m in matches if m["round"].startswith("Jornada")]
-        labels = {m["match_id"]: f"{m['home_team']} vs {m['away_team']}  ({m['group']})"
-                  for m in gs_matches}
-        sel_mid = st.selectbox("Partido", list(labels.keys()),
-                               format_func=lambda k: labels[k], key="sim_match")
-        sel_m   = next(m for m in gs_matches if m["match_id"] == sel_mid)
+    overrides = get_match_results()
+
+    # ── Round selector ──
+    sel_round = st.selectbox("Fase / Jornada", _ALL_ROUNDS, key="admin_round_sel")
+    round_matches = [m for m in matches if m["round"] == sel_round]
+
+    if not round_matches:
+        st.info("No hay partidos definidos para esta fase todavía (equipos TBD).")
+    else:
+        # ── Match selector ──
+        match_labels: dict[str, str] = {}
+        for m in round_matches:
+            home = m["home_team"] if m["home_team"] != "TBD" else "Por definir"
+            away = m["away_team"] if m["away_team"] != "TBD" else "Por definir"
+            grp  = m.get("group", "")
+            date_str = fmt_date(m.get("match_date", ""))
+
+            grp_label = f"  ({grp})" if grp and grp != sel_round and grp.startswith("Grupo") else f"  ({date_str})"
+            score_label = ""
+            if m["home_score"] is not None:
+                src  = overrides.get(m["match_id"], {}).get("source", "api")
+                icon = "📝" if src == "manual" else "🌐"
+                score_label = f"  → {icon} {m['home_score']}-{m['away_score']} [{m['status']}]"
+
+            match_labels[m["match_id"]] = f"{home} vs {away}{grp_label}{score_label}"
+
+        sel_mid = st.selectbox(
+            "Partido",
+            list(match_labels.keys()),
+            format_func=lambda k: match_labels[k],
+            key="admin_match_sel",
+        )
+        sel_m = next(m for m in round_matches if m["match_id"] == sel_mid)
+
+        # Show current result if known
+        if sel_m["home_score"] is not None:
+            src = overrides.get(sel_mid, {}).get("source", "api")
+            src_label = "📝 Manual" if src == "manual" else "🌐 API automática"
+            st.info(
+                f"Resultado actual ({src_label}): "
+                f"**{sel_m['home_team']}** {sel_m['home_score']} – {sel_m['away_score']} "
+                f"**{sel_m['away_team']}** [{sel_m['status']}]"
+            )
+
+        home_name = sel_m["home_team"] if sel_m["home_team"] != "TBD" else "Local"
+        away_name = sel_m["away_team"] if sel_m["away_team"] != "TBD" else "Visitante"
+        default_h  = int(sel_m["home_score"]) if sel_m["home_score"] is not None else 0
+        default_a  = int(sel_m["away_score"]) if sel_m["away_score"] is not None else 0
+        cur_status = sel_m["status"] if sel_m["status"] in _STATUS_OPTS else "FT"
 
         c1, c2, c3 = st.columns([2, 2, 3])
         with c1:
-            sim_h = st.number_input(f"{sel_m['home_team']}", 0, 20, 0, key="sim_h")
+            new_h = st.number_input(home_name, 0, 20, default_h, key="admin_sim_h")
         with c2:
-            sim_a = st.number_input(f"{sel_m['away_team']}", 0, 20, 0, key="sim_a")
+            new_a = st.number_input(away_name, 0, 20, default_a, key="admin_sim_a")
         with c3:
-            sim_status = st.selectbox("Estado", ["FT","1H","2H","HT","ET","PEN"], key="sim_status")
+            new_status = st.selectbox(
+                "Estado", _STATUS_OPTS,
+                index=_STATUS_OPTS.index(cur_status),
+                key="admin_sim_status",
+            )
 
-        bc1, bc2, bc3 = st.columns(3)
+        bc1, bc2 = st.columns(2)
         with bc1:
-            if st.button("✅ Aplicar resultado", key="sim_apply"):
-                set_match_result(sel_mid, int(sim_h), int(sim_a), sim_status)
-                st.success(f"Resultado guardado: {sel_m['home_team']} {sim_h}–{sim_a} {sel_m['away_team']} ({sim_status})")
+            if st.button("✅ Guardar resultado", key="admin_sim_apply", use_container_width=True):
+                set_match_result(sel_mid, int(new_h), int(new_a), new_status, source="manual")
+                st.success(f"✅ {home_name} {new_h}–{new_a} {away_name} ({new_status})")
                 st.rerun()
         with bc2:
-            if st.button("🎲 Aleatorio", key="sim_random"):
-                rh = random.randint(0, 5)
-                ra = random.randint(0, 5)
-                set_match_result(sel_mid, rh, ra, "FT")
-                st.success(f"Resultado aleatorio: {sel_m['home_team']} {rh}–{ra} {sel_m['away_team']} (FT)")
-                st.rerun()
-        with bc3:
-            if st.button("🗑️ Borrar resultado", key="sim_clear"):
-                clear_match_result(sel_mid)
-                st.info("Resultado eliminado.")
-                st.rerun()
+            if sel_mid in overrides and overrides[sel_mid].get("source", "manual") == "manual":
+                if st.button("🗑️ Borrar resultado manual", key="admin_sim_clear", use_container_width=True):
+                    clear_match_result(sel_mid)
+                    st.info("Resultado manual eliminado. La API tomará el control.")
+                    st.rerun()
 
-    # Show active overrides
+    # ── Active results summary ──
+    st.markdown("---")
     overrides = get_match_results()
-    if overrides:
-        st.markdown("**Resultados simulados activos:**")
+    manual    = {mid: ov for mid, ov in overrides.items() if ov.get("source", "manual") == "manual"}
+    api_count = sum(1 for ov in overrides.values() if ov.get("source") == "api")
+
+    col1, col2 = st.columns(2)
+    col1.metric("📝 Resultados manuales", len(manual))
+    col2.metric("🌐 Sincronizados de API", api_count)
+
+    if manual:
+        st.markdown("**Resultados ingresados manualmente:**")
         match_map = {m["match_id"]: m for m in matches}
-        for mid, ov in overrides.items():
-            m = match_map.get(mid, {})
-            home = m.get("home_team", mid); away = m.get("away_team", "")
+        for mid, ov in manual.items():
+            m    = match_map.get(mid, {})
+            home = m.get("home_team", mid)
+            away = m.get("away_team", "")
+            rnd  = m.get("round", "")
             st.markdown(
                 f"- **{home}** {ov['home_score']}–{ov['away_score']} **{away}** "
-                f"[{ov['status']}]"
+                f"[{ov['status']}]  ·  *{rnd}*"
             )
-        if st.button("🗑️ Borrar todos los resultados simulados", key="clear_all"):
+        if st.button("🗑️ Borrar todos los resultados manuales", key="clear_manual_all"):
+            for mid in list(manual.keys()):
+                clear_match_result(mid)
+            st.rerun()
+
+    if overrides:
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("🗑️ Borrar TODOS los resultados (manuales + API cache)", key="clear_all_results"):
             clear_all_results()
             st.rerun()
 
@@ -650,6 +719,12 @@ def show_app():
     user = st.session_state["user"]
 
     raw_matches = get_matches()
+
+    # Auto-persist real API results so they survive restarts / API outages
+    api_data = fetch_api_matches()
+    if api_data:
+        sync_api_results(api_data)
+
     overrides   = get_match_results()
     matches     = apply_overrides(raw_matches, overrides)
     live_ids    = get_live_ids()

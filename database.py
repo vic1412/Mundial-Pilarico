@@ -91,6 +91,7 @@ def init_db():
                 home_score INTEGER NOT NULL,
                 away_score INTEGER NOT NULL,
                 status TEXT NOT NULL DEFAULT 'FT',
+                source TEXT NOT NULL DEFAULT 'manual',
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS sessions (
@@ -100,6 +101,11 @@ def init_db():
                 FOREIGN KEY (user_id) REFERENCES users(id)
             );
         """)
+        # Migration: add source column if upgrading from older schema
+        try:
+            c.execute("ALTER TABLE match_results ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'")
+        except Exception:
+            pass
 
 
 # ── Users ──────────────────────────────────────────────────────────────────
@@ -219,35 +225,47 @@ def get_all_predictions() -> list:
 
 # ── Match results ──────────────────────────────────────────────────────────
 
-def set_match_result(match_id: str, home_score: int, away_score: int, status: str = "FT"):
+def set_match_result(match_id: str, home_score: int, away_score: int, status: str = "FT", source: str = "manual"):
     if _use_supabase():
         db = _db()
-        _sb(lambda: db.table("match_results").upsert(
-            {"match_id": match_id, "home_score": home_score,
-             "away_score": away_score, "status": status},
-            on_conflict="match_id").execute())
+        try:
+            db.table("match_results").upsert(
+                {"match_id": match_id, "home_score": home_score,
+                 "away_score": away_score, "status": status, "source": source},
+                on_conflict="match_id").execute()
+        except Exception:
+            # Fallback for Supabase instances without the source column yet
+            _sb(lambda: db.table("match_results").upsert(
+                {"match_id": match_id, "home_score": home_score,
+                 "away_score": away_score, "status": status},
+                on_conflict="match_id").execute())
         return
     with _conn() as c:
         c.execute("""
-            INSERT INTO match_results (match_id, home_score, away_score, status, updated_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO match_results (match_id, home_score, away_score, status, source, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT(match_id) DO UPDATE SET
                 home_score=excluded.home_score,
                 away_score=excluded.away_score,
                 status=excluded.status,
+                source=excluded.source,
                 updated_at=excluded.updated_at
-        """, (match_id, home_score, away_score, status, datetime.now().isoformat()))
+        """, (match_id, home_score, away_score, status, source, datetime.now().isoformat()))
 
 
 def get_match_results() -> dict:
     if _use_supabase():
         db = _db()
-        res = _sb(lambda: db.table("match_results")
-                  .select("match_id,home_score,away_score,status").execute())
-        return {r["match_id"]: r for r in res.data}
+        res = _sb(lambda: db.table("match_results").select("*").execute())
+        results = {}
+        for r in res.data:
+            r.setdefault("source", "manual")
+            results[r["match_id"]] = r
+        return results
     with _conn() as c:
         rows = c.execute(
-            "SELECT match_id, home_score, away_score, status FROM match_results").fetchall()
+            "SELECT match_id, home_score, away_score, status, source FROM match_results"
+        ).fetchall()
     return {r["match_id"]: dict(r) for r in rows}
 
 
@@ -267,6 +285,46 @@ def clear_all_results():
         return
     with _conn() as c:
         c.execute("DELETE FROM match_results")
+
+
+def sync_api_results(matches: list):
+    """Persist finished/live match results from the real API to the DB.
+
+    Only runs for matches with actual scores. Skips any match that already has
+    a manual override so admin entries are never overwritten automatically.
+    Call this after a successful fetch_api_matches() — never with mock data.
+    """
+    _DONE = {"FT", "AET", "PEN"}
+    _LIVE = {"1H", "2H", "HT", "ET", "BT", "P", "INT"}
+
+    current = get_match_results()
+
+    for m in matches:
+        mid    = m.get("match_id", "")
+        status = m.get("status", "")
+        hs     = m.get("home_score")
+        as_    = m.get("away_score")
+
+        if not mid or status not in (_DONE | _LIVE):
+            continue
+        if hs is None or as_ is None:
+            continue
+
+        existing = current.get(mid)
+
+        # Never overwrite a manual entry
+        if existing and existing.get("source", "manual") == "manual":
+            continue
+
+        # Skip if already stored with identical data (avoid unnecessary writes)
+        if existing and (
+            existing.get("home_score") == hs
+            and existing.get("away_score") == as_
+            and existing.get("status") == status
+        ):
+            continue
+
+        set_match_result(mid, int(hs), int(as_), status, source="api")
 
 
 # ── Sessions ───────────────────────────────────────────────────────────────
