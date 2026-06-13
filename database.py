@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import hashlib
 import sqlite3
 import uuid
@@ -228,17 +230,10 @@ def get_all_predictions() -> list:
 def set_match_result(match_id: str, home_score: int, away_score: int, status: str = "FT", source: str = "manual"):
     if _use_supabase():
         db = _db()
-        try:
-            db.table("match_results").upsert(
-                {"match_id": match_id, "home_score": home_score,
-                 "away_score": away_score, "status": status, "source": source},
-                on_conflict="match_id").execute()
-        except Exception:
-            # Fallback for Supabase instances without the source column yet
-            _sb(lambda: db.table("match_results").upsert(
-                {"match_id": match_id, "home_score": home_score,
-                 "away_score": away_score, "status": status},
-                on_conflict="match_id").execute())
+        _sb(lambda: db.table("match_results").upsert(
+            {"match_id": match_id, "home_score": home_score,
+             "away_score": away_score, "status": status, "source": source},
+            on_conflict="match_id").execute())
         return
     with _conn() as c:
         c.execute("""
@@ -256,7 +251,8 @@ def set_match_result(match_id: str, home_score: int, away_score: int, status: st
 def get_match_results() -> dict:
     if _use_supabase():
         db = _db()
-        res = _sb(lambda: db.table("match_results").select("*").execute())
+        res = _sb(lambda: db.table("match_results")
+                  .select("match_id,home_score,away_score,status,source").execute())
         results = {}
         for r in res.data:
             r.setdefault("source", "manual")
