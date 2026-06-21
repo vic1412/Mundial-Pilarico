@@ -208,6 +208,25 @@ ROUND_LABELS = {
     "Final":          "Final",
 }
 
+# ── Confederation config ─────────────────────────────────────────────────
+
+_CONF_MAP: dict[str, str] = {
+    "Nueva Zelanda": "OFC",
+    "Colombia": "CONMEBOL", "Argentina": "CONMEBOL", "Brasil": "CONMEBOL",
+    "Ecuador": "CONMEBOL", "Paraguay": "CONMEBOL", "Uruguay": "CONMEBOL",
+    "Curaçao": "CONCACAF", "USA": "CONCACAF", "Canadá": "CONCACAF",
+    "Panamá": "CONCACAF", "Haití": "CONCACAF", "México": "CONCACAF",
+    "Irak": "AFC", "Arabia Saudí": "AFC", "Japón": "AFC",
+    "Corea del Sur": "AFC", "Uzbekistán": "AFC", "Jordania": "AFC",
+    "Catar": "AFC", "Australia": "AFC", "Irán": "AFC",
+    "Egipto": "CAF", "Túnez": "CAF", "Argelia": "CAF",
+    "Marruecos": "CAF", "Senegal": "CAF", "Cabo Verde": "CAF",
+    "Costa de Marfil": "CAF", "Ghana": "CAF", "Rep. Dem. Congo": "CAF",
+    "Sudáfrica": "CAF",
+}
+CONFS = ["UEFA", "CONCACAF", "CONMEBOL", "AFC", "CAF", "OFC"]
+_CONF_N = {"UEFA": 16, "CONCACAF": 6, "CONMEBOL": 6, "AFC": 9, "CAF": 10, "OFC": 1}
+
 RANK_CSS   = ["lb-gold","lb-silver","lb-bronze"]
 RANK_MEDAL = ["🥇","🥈","🥉"]
 PTS_CSS    = {4:"pts-4", 3:"pts-3", 2:"pts-2", 0:"pts-0"}
@@ -250,6 +269,128 @@ def compute_user_stats(user_id: int, matches: list, live_ids: set):
             if mid in live_ids or m["status"] in STATUS_LIVE:
                 live_pts += p
     return pts, live_pts, preds
+
+
+# ── Confederation stats helpers ───────────────────────────────────────────
+
+def _get_conf(team: str) -> str:
+    return _CONF_MAP.get(team, "UEFA")
+
+
+def _compute_conf_stats(matches: list, round_filter=None) -> dict:
+    raw = {c: {"gf": 0, "ga": 0, "pts": 0, "mp": 0} for c in CONFS}
+    played = STATUS_DONE | STATUS_LIVE
+    for m in matches:
+        if round_filter and m["round"] != round_filter:
+            continue
+        if m["status"] not in played or m["home_score"] is None:
+            continue
+        hc = _get_conf(m["home_team"])
+        ac = _get_conf(m["away_team"])
+        hs, as_ = m["home_score"], m["away_score"]
+        raw[hc]["gf"] += hs; raw[hc]["ga"] += as_; raw[hc]["mp"] += 1
+        raw[ac]["gf"] += as_; raw[ac]["ga"] += hs; raw[ac]["mp"] += 1
+        if hs > as_:
+            raw[hc]["pts"] += 3
+        elif hs == as_:
+            raw[hc]["pts"] += 1; raw[ac]["pts"] += 1
+        else:
+            raw[ac]["pts"] += 3
+    result = {}
+    for c in CONFS:
+        r = raw[c]; n = _CONF_N[c]
+        result[c] = {
+            "avg_gf":  r["gf"] / n,
+            "avg_ga":  r["ga"] / n,
+            "avg_pts": r["pts"] / n,
+            "rend":    r["pts"] / (r["mp"] * 3) * 100 if r["mp"] > 0 else 0.0,
+        }
+    return result
+
+
+def _compute_vs_stats(matches: list, round_filter=None) -> dict:
+    vs = {c1: {c2: {"gf": 0, "ga": 0, "pts": 0, "mp": 0} for c2 in CONFS} for c1 in CONFS}
+    played = STATUS_DONE | STATUS_LIVE
+    for m in matches:
+        if round_filter and m["round"] != round_filter:
+            continue
+        if m["status"] not in played or m["home_score"] is None:
+            continue
+        hc = _get_conf(m["home_team"])
+        ac = _get_conf(m["away_team"])
+        if hc == ac:
+            continue
+        hs, as_ = m["home_score"], m["away_score"]
+        vs[hc][ac]["gf"] += hs; vs[hc][ac]["ga"] += as_; vs[hc][ac]["mp"] += 1
+        vs[ac][hc]["gf"] += as_; vs[ac][hc]["ga"] += hs; vs[ac][hc]["mp"] += 1
+        if hs > as_:
+            vs[hc][ac]["pts"] += 3
+        elif hs == as_:
+            vs[hc][ac]["pts"] += 1; vs[ac][hc]["pts"] += 1
+        else:
+            vs[ac][hc]["pts"] += 3
+    return vs
+
+
+def _html_conf_table(stats: dict) -> str:
+    hdr = (
+        "<th style='text-align:left'>Confederación</th>"
+        "<th>⚽ Goles marcados (prom)</th>"
+        "<th>📈 Rendimiento</th>"
+        "<th>🥅 Goles recibidos (prom)</th>"
+        "<th>🏅 Puntos (prom)</th>"
+    )
+    rows = ""
+    for c in CONFS:
+        s = stats[c]
+        rows += (
+            f"<tr>"
+            f"<td style='text-align:left;font-family:\"Oswald\",sans-serif;"
+            f"font-weight:700;color:#FFD700'>{c}</td>"
+            f"<td>{s['avg_gf']:.2f}</td>"
+            f"<td>{s['rend']:.1f}%</td>"
+            f"<td>{s['avg_ga']:.2f}</td>"
+            f"<td>{s['avg_pts']:.2f}</td>"
+            f"</tr>"
+        )
+    return (
+        f"<div class='gs-wrap'><table class='gs-table'>"
+        f"<thead><tr>{hdr}</tr></thead>"
+        f"<tbody>{rows}</tbody></table></div>"
+    )
+
+
+def _html_vs_table(conf: str, vs: dict) -> str:
+    hdr = f"<th style='text-align:left;color:#FFD700;font-family:\"Oswald\",sans-serif'>{conf}</th>"
+    for c2 in CONFS:
+        hdr += f"<th style='font-size:.75rem'>vs {c2}</th>"
+
+    metrics = [
+        ("Goles a favor",  lambda d: str(d["gf"])),
+        ("Goles en contra", lambda d: str(d["ga"])),
+        ("Puntos",         lambda d: str(d["pts"])),
+        ("Rendimiento",    lambda d: (
+            f"{d['pts'] / (d['mp'] * 3) * 100:.1f}%" if d["mp"] > 0 else "—"
+        )),
+    ]
+    rows = ""
+    for label, val_fn in metrics:
+        row = (
+            f"<tr><td style='text-align:left;color:rgba(255,255,255,.7);"
+            f"font-size:.78rem;white-space:nowrap'>{label}</td>"
+        )
+        for c2 in CONFS:
+            if c2 == conf:
+                row += "<td style='color:rgba(255,255,255,.15)'>—</td>"
+            else:
+                row += f"<td>{val_fn(vs[conf][c2])}</td>"
+        row += "</tr>"
+        rows += row
+    return (
+        f"<div class='gs-wrap'><table class='gs-table'>"
+        f"<thead><tr>{hdr}</tr></thead>"
+        f"<tbody>{rows}</tbody></table></div>"
+    )
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────
@@ -567,6 +708,76 @@ def show_leaderboard(matches: list, live_ids: set):
     c3.metric("Líder con", f"{ranked[0][1]['pts']} pts" if ranked else "—")
 
 
+# ── Estadísticas tab ─────────────────────────────────────────────────────
+
+def show_estadisticas(matches: list):
+    _SUBTAB_ROUND = {
+        "Total":         None,
+        "Jornada 1":     "Jornada 1",
+        "Jornada 2":     "Jornada 2",
+        "Jornada 3":     "Jornada 3",
+        "Dieciseisavos": "Dieciseisavos",
+        "Octavos":       "Octavos",
+        "Cuartos":       "Cuartos de Final",
+        "Semifinal":     "Semifinal",
+        "Final":         "Final",
+    }
+    tab_names = list(_SUBTAB_ROUND.keys()) + ["VS"]
+    subtabs = st.tabs(tab_names)
+    played = STATUS_DONE | STATUS_LIVE
+
+    # Round sub-tabs
+    for i, (tab_name, rf) in enumerate(_SUBTAB_ROUND.items()):
+        with subtabs[i]:
+            any_data = any(
+                m["status"] in played
+                and m["home_score"] is not None
+                and (rf is None or m["round"] == rf)
+                for m in matches
+            )
+            if not any_data:
+                st.markdown(
+                    "<div style='color:rgba(255,255,255,.35);font-size:.85rem;margin-top:1rem'>"
+                    "⏳ Aún no hay resultados para esta fase.</div>",
+                    unsafe_allow_html=True,
+                )
+            else:
+                stats = _compute_conf_stats(matches, rf)
+                st.markdown(_html_conf_table(stats), unsafe_allow_html=True)
+                st.markdown(
+                    "<div style='margin-top:.6rem;font-size:.72rem;color:rgba(255,255,255,.3)'>"
+                    "Prom = total / equipos de la confederación · Rendimiento = pts totales / pts posibles</div>",
+                    unsafe_allow_html=True,
+                )
+
+    # VS sub-tab
+    with subtabs[len(_SUBTAB_ROUND)]:
+        vs = _compute_vs_stats(matches, None)
+        any_vs = any(
+            m["status"] in played and m["home_score"] is not None
+            and _get_conf(m["home_team"]) != _get_conf(m["away_team"])
+            for m in matches
+        )
+        st.markdown(
+            "<div style='font-size:.78rem;color:rgba(255,255,255,.4);margin-bottom:.6rem'>"
+            "Métricas entre confederaciones distintas · total del torneo</div>",
+            unsafe_allow_html=True,
+        )
+        if not any_vs:
+            st.markdown(
+                "<div style='color:rgba(255,255,255,.35);font-size:.85rem'>"
+                "⏳ Aún no hay resultados entre confederaciones distintas.</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            for conf in CONFS:
+                st.markdown(
+                    f"<div class='group-label' style='margin-top:14px'>{conf}</div>",
+                    unsafe_allow_html=True,
+                )
+                st.markdown(_html_vs_table(conf, vs), unsafe_allow_html=True)
+
+
 # ── Admin tab ─────────────────────────────────────────────────────────────
 
 _ALL_ROUNDS = [
@@ -745,12 +956,12 @@ def show_app():
 
     is_admin = user["username"].lower() == "vic73"
 
-    tab_labels = ["🏆  Pronósticos", "📊  Grupos", "🥇  Clasificación"]
+    tab_labels = ["🏆  Pronósticos", "📊  Grupos", "🥇  Clasificación", "📈  Estadísticas"]
     if is_admin:
         tab_labels.append("⚙️  Admin")
     tabs = st.tabs(tab_labels)
-    t_pred, t_groups, t_lb = tabs[0], tabs[1], tabs[2]
-    t_admin = tabs[3] if is_admin else None
+    t_pred, t_groups, t_lb, t_stats = tabs[0], tabs[1], tabs[2], tabs[3]
+    t_admin = tabs[4] if is_admin else None
 
     with t_pred:
         show_predictions(user, matches, live_ids)
@@ -758,6 +969,8 @@ def show_app():
         show_group_standings(matches)
     with t_lb:
         show_leaderboard(matches, live_ids)
+    with t_stats:
+        show_estadisticas(matches)
     if is_admin:
         with t_admin:
             show_admin(user, matches)
