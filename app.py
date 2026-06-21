@@ -318,17 +318,30 @@ def _compute_vs_stats(matches: list, round_filter=None) -> dict:
             continue
         hc = _get_conf(m["home_team"])
         ac = _get_conf(m["away_team"])
-        if hc == ac:
-            continue
         hs, as_ = m["home_score"], m["away_score"]
-        vs[hc][ac]["gf"] += hs; vs[hc][ac]["ga"] += as_; vs[hc][ac]["mp"] += 1
-        vs[ac][hc]["gf"] += as_; vs[ac][hc]["ga"] += hs; vs[ac][hc]["mp"] += 1
-        if hs > as_:
-            vs[hc][ac]["pts"] += 3
-        elif hs == as_:
-            vs[hc][ac]["pts"] += 1; vs[ac][hc]["pts"] += 1
+
+        if hc == ac:
+            # Intra-confederation: both teams contribute to the same diagonal cell.
+            # Each team slot counts separately → mp += 2, gf/ga = sum of both sides.
+            c = hc
+            vs[c][c]["gf"] += hs + as_
+            vs[c][c]["ga"] += hs + as_
+            vs[c][c]["mp"] += 2
+            if hs > as_:
+                vs[c][c]["pts"] += 3   # only winner earns points
+            elif hs == as_:
+                vs[c][c]["pts"] += 2   # 1 pt each → 2 total
+            else:
+                vs[c][c]["pts"] += 3
         else:
-            vs[ac][hc]["pts"] += 3
+            vs[hc][ac]["gf"] += hs; vs[hc][ac]["ga"] += as_; vs[hc][ac]["mp"] += 1
+            vs[ac][hc]["gf"] += as_; vs[ac][hc]["ga"] += hs; vs[ac][hc]["mp"] += 1
+            if hs > as_:
+                vs[hc][ac]["pts"] += 3
+            elif hs == as_:
+                vs[hc][ac]["pts"] += 1; vs[ac][hc]["pts"] += 1
+            else:
+                vs[ac][hc]["pts"] += 3
     return vs
 
 
@@ -366,9 +379,9 @@ def _html_vs_table(conf: str, vs: dict) -> str:
         hdr += f"<th style='font-size:.75rem'>vs {c2}</th>"
 
     metrics = [
-        ("Goles a favor",  lambda d: str(d["gf"])),
-        ("Goles en contra", lambda d: str(d["ga"])),
-        ("Puntos",         lambda d: str(d["pts"])),
+        ("Goles a favor",  lambda d: str(d["gf"]) if d["mp"] > 0 else "—"),
+        ("Goles en contra", lambda d: str(d["ga"]) if d["mp"] > 0 else "—"),
+        ("Puntos",         lambda d: str(d["pts"]) if d["mp"] > 0 else "—"),
         ("Rendimiento",    lambda d: (
             f"{d['pts'] / (d['mp'] * 3) * 100:.1f}%" if d["mp"] > 0 else "—"
         )),
@@ -380,10 +393,7 @@ def _html_vs_table(conf: str, vs: dict) -> str:
             f"font-size:.78rem;white-space:nowrap'>{label}</td>"
         )
         for c2 in CONFS:
-            if c2 == conf:
-                row += "<td style='color:rgba(255,255,255,.15)'>—</td>"
-            else:
-                row += f"<td>{val_fn(vs[conf][c2])}</td>"
+            row += f"<td>{val_fn(vs[conf][c2])}</td>"
         row += "</tr>"
         rows += row
     return (
