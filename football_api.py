@@ -309,15 +309,27 @@ _SCHEDULE_LOOKUP_INV: dict[tuple, str] = {
     for letter, suffix, home, away, _date in _GROUP_SCHEDULE
 }
 
-# Knockout stage exact dates
-_R32_DATES = [
-    "2026-06-28",                                           # 1 match
-    "2026-06-29","2026-06-29","2026-06-29",                 # 3 matches
-    "2026-06-30","2026-06-30","2026-06-30",                 # 3 matches
-    "2026-07-01","2026-07-01","2026-07-01",                 # 3 matches
-    "2026-07-02","2026-07-02","2026-07-02",                 # 3 matches
-    "2026-07-03","2026-07-03","2026-07-03",                 # 3 matches
+# Dieciseisavos de final — equipos confirmados (fuente: FIFA / Al Jazeera, 28-Jun-2026)
+# (home, away, date)
+_R32_MATCHES = [
+    ("Sudáfrica",        "Canadá",              "2026-06-28"),  # R32-01
+    ("Brasil",           "Japón",               "2026-06-29"),  # R32-02
+    ("Alemania",         "Paraguay",            "2026-06-29"),  # R32-03
+    ("Países Bajos",     "Marruecos",           "2026-06-29"),  # R32-04
+    ("Costa de Marfil",  "Noruega",             "2026-06-30"),  # R32-05
+    ("Francia",          "Suecia",              "2026-06-30"),  # R32-06
+    ("México",           "Ecuador",             "2026-06-30"),  # R32-07
+    ("Inglaterra",       "Rep. Dem. Congo",     "2026-07-01"),  # R32-08
+    ("Bélgica",          "Senegal",             "2026-07-01"),  # R32-09
+    ("USA",              "Bosnia y Herzegovina","2026-07-01"),  # R32-10
+    ("España",           "Austria",             "2026-07-02"),  # R32-11
+    ("Portugal",         "Croacia",             "2026-07-02"),  # R32-12
+    ("Suiza",            "Argelia",             "2026-07-02"),  # R32-13
+    ("Australia",        "Egipto",              "2026-07-03"),  # R32-14
+    ("Argentina",        "Cabo Verde",          "2026-07-03"),  # R32-15
+    ("Colombia",         "Ghana",               "2026-07-03"),  # R32-16
 ]
+
 _R16_DATES = [
     "2026-07-04","2026-07-04",
     "2026-07-05","2026-07-05",
@@ -349,9 +361,9 @@ def _generate_group_matches() -> list:
 
 def _generate_knockout_matches() -> list:
     matches = []
-    for i, date in enumerate(_R32_DATES):
+    for i, (home, away, date) in enumerate(_R32_MATCHES):
         matches.append(_m(f"R32-{i+1:02d}", "Dieciseisavos", "Dieciseisavos",
-                          "TBD", "TBD", date))
+                          home, away, date))
     for i, date in enumerate(_R16_DATES):
         matches.append(_m(f"R16-{i+1:02d}", "Octavos", "Octavos",
                           "TBD", "TBD", date))
