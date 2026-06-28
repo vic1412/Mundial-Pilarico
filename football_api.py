@@ -329,6 +329,15 @@ _R32_MATCHES = [
     ("Argentina",        "Cabo Verde",          "2026-07-03"),  # R32-15
     ("Colombia",         "Ghana",               "2026-07-03"),  # R32-16
 ]
+# Lookup (home, away) → local match ID for knockout stage (so API fixtures map correctly)
+_KNOCKOUT_LOOKUP: dict[tuple, str] = {
+    (home, away): f"R32-{i+1:02d}"
+    for i, (home, away, _date) in enumerate(_R32_MATCHES)
+}
+_KNOCKOUT_LOOKUP_INV: dict[tuple, str] = {
+    (away, home): f"R32-{i+1:02d}"
+    for i, (home, away, _date) in enumerate(_R32_MATCHES)
+}
 
 _R16_DATES = [
     "2026-07-04","2026-07-04",
@@ -529,8 +538,13 @@ def _parse_fixture(f: dict) -> dict:
     home = API_NAME_MAP.get(home_raw, home_raw)
     away = API_NAME_MAP.get(away_raw, away_raw)
 
-    # Resolve local match_id from schedule lookup (group stage) or fall back to API id
-    local_id = _SCHEDULE_LOOKUP.get((home, away)) or _SCHEDULE_LOOKUP_INV.get((home, away))
+    # Resolve local match_id: group stage first, then knockout, then fall back to API id
+    local_id = (
+        _SCHEDULE_LOOKUP.get((home, away))
+        or _SCHEDULE_LOOKUP_INV.get((home, away))
+        or _KNOCKOUT_LOOKUP.get((home, away))
+        or _KNOCKOUT_LOOKUP_INV.get((home, away))
+    )
     match_id = local_id if local_id else str(fix["id"])
 
     # Normalize round and group labels
@@ -557,8 +571,24 @@ def _parse_fixture(f: dict) -> dict:
 
 
 def get_matches() -> list:
-    api = fetch_api_matches()
-    return api if api else get_mock_matches()
+    """Mock is always the canonical fixture list (teams, IDs, dates).
+    API data only overlays live status/scores onto matching match IDs."""
+    mock = get_mock_matches()
+    api  = fetch_api_matches()
+    if not api:
+        return mock
+    api_by_id = {m["match_id"]: m for m in api}
+    result = []
+    for m in mock:
+        mc = m.copy()
+        a  = api_by_id.get(m["match_id"])
+        if a:
+            mc["status"]     = a["status"]
+            mc["home_score"] = a["home_score"]
+            mc["away_score"] = a["away_score"]
+            mc["minute"]     = a["minute"]
+        result.append(mc)
+    return result
 
 
 def get_live_ids() -> set:
