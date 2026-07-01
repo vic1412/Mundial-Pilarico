@@ -226,6 +226,7 @@ _CONF_MAP: dict[str, str] = {
 }
 CONFS = ["UEFA", "CONCACAF", "CONMEBOL", "AFC", "CAF", "OFC"]
 _CONF_N = {"UEFA": 16, "CONCACAF": 6, "CONMEBOL": 6, "AFC": 9, "CAF": 10, "OFC": 1}
+_KNOCKOUT_ROUNDS = {"Dieciseisavos", "Octavos", "Cuartos de Final", "Semifinal", "Final"}
 
 RANK_CSS   = ["lb-gold","lb-silver","lb-bronze"]
 RANK_MEDAL = ["🥇","🥈","🥉"]
@@ -296,9 +297,27 @@ def _compute_conf_stats(matches: list, round_filter=None) -> dict:
             raw[hc]["pts"] += 1; raw[ac]["pts"] += 1
         else:
             raw[ac]["pts"] += 3
+    # For knockout rounds use the actual number of teams participating in that round,
+    # not the original group-stage count (which would inflate the averages for eliminated teams).
+    if round_filter in _KNOCKOUT_ROUNDS:
+        conf_n: dict[str, int] = {c: 0 for c in CONFS}
+        seen: set[str] = set()
+        for m in matches:
+            if m["round"] != round_filter:
+                continue
+            for team in (m["home_team"], m["away_team"]):
+                if team != "TBD" and team not in seen:
+                    seen.add(team)
+                    conf_n[_get_conf(team)] += 1
+        for c in CONFS:
+            if conf_n[c] == 0:
+                conf_n[c] = 1  # avoid division by zero when a conf has no teams in round
+    else:
+        conf_n = _CONF_N
+
     result = {}
     for c in CONFS:
-        r = raw[c]; n = _CONF_N[c]
+        r = raw[c]; n = conf_n[c]
         result[c] = {
             "avg_gf":  r["gf"] / n,
             "avg_ga":  r["ga"] / n,
@@ -754,9 +773,13 @@ def show_estadisticas(matches: list):
             else:
                 stats = _compute_conf_stats(matches, rf)
                 st.markdown(_html_conf_table(stats), unsafe_allow_html=True)
+                note = (
+                    "Prom = total / equipos de la confederación en esa ronda · Rendimiento = pts totales / pts posibles"
+                    if rf in _KNOCKOUT_ROUNDS
+                    else "Prom = total / equipos de la confederación · Rendimiento = pts totales / pts posibles"
+                )
                 st.markdown(
-                    "<div style='margin-top:.6rem;font-size:.72rem;color:rgba(255,255,255,.3)'>"
-                    "Prom = total / equipos de la confederación · Rendimiento = pts totales / pts posibles</div>",
+                    f"<div style='margin-top:.6rem;font-size:.72rem;color:rgba(255,255,255,.3)'>{note}</div>",
                     unsafe_allow_html=True,
                 )
 
