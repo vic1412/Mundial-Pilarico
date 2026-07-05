@@ -339,12 +339,26 @@ _KNOCKOUT_LOOKUP_INV: dict[tuple, str] = {
     for i, (home, away, _date) in enumerate(_R32_MATCHES)
 }
 
-_R16_DATES = [
-    "2026-07-04","2026-07-04",
-    "2026-07-05","2026-07-05",
-    "2026-07-06","2026-07-06",
-    "2026-07-07","2026-07-07",
+# Octavos de final — equipos confirmados (fuente: FIFA/ESPN/Al Jazeera, 3-Jul-2026)
+_R16_MATCHES = [
+    ("Canadá",    "Marruecos",  "2026-07-04"),  # R16-01
+    ("Paraguay",  "Francia",    "2026-07-04"),  # R16-02
+    ("Brasil",    "Noruega",    "2026-07-05"),  # R16-03
+    ("México",    "Inglaterra", "2026-07-05"),  # R16-04
+    ("España",    "Portugal",   "2026-07-06"),  # R16-05
+    ("Bélgica",   "USA",        "2026-07-06"),  # R16-06
+    ("Egipto",    "Argentina",  "2026-07-07"),  # R16-07
+    ("Suiza",     "Colombia",   "2026-07-07"),  # R16-08
 ]
+_R16_LOOKUP: dict[tuple, str] = {
+    (home, away): f"R16-{i+1:02d}"
+    for i, (home, away, _date) in enumerate(_R16_MATCHES)
+}
+_R16_LOOKUP_INV: dict[tuple, str] = {
+    (away, home): f"R16-{i+1:02d}"
+    for i, (home, away, _date) in enumerate(_R16_MATCHES)
+}
+
 _QF_DATES  = ["2026-07-09","2026-07-10","2026-07-11","2026-07-11"]
 
 
@@ -373,9 +387,9 @@ def _generate_knockout_matches() -> list:
     for i, (home, away, date) in enumerate(_R32_MATCHES):
         matches.append(_m(f"R32-{i+1:02d}", "Dieciseisavos", "Dieciseisavos",
                           home, away, date))
-    for i, date in enumerate(_R16_DATES):
+    for i, (home, away, date) in enumerate(_R16_MATCHES):
         matches.append(_m(f"R16-{i+1:02d}", "Octavos", "Octavos",
-                          "TBD", "TBD", date))
+                          home, away, date))
     for i, date in enumerate(_QF_DATES):
         matches.append(_m(f"QF-{i+1:02d}", "Cuartos de Final", "Cuartos de Final",
                           "TBD", "TBD", date))
@@ -544,6 +558,8 @@ def _parse_fixture(f: dict) -> dict:
         or _SCHEDULE_LOOKUP_INV.get((home, away))
         or _KNOCKOUT_LOOKUP.get((home, away))
         or _KNOCKOUT_LOOKUP_INV.get((home, away))
+        or _R16_LOOKUP.get((home, away))
+        or _R16_LOOKUP_INV.get((home, away))
     )
     match_id = local_id if local_id else str(fix["id"])
 
