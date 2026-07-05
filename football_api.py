@@ -405,11 +405,83 @@ def get_mock_matches() -> list:
 
 
 # ---------------------------------------------------------------------------
-# Group standings calculator
+# Bracket propagation
 # ---------------------------------------------------------------------------
 
 STATUS_DONE = {"FT", "AET", "PEN"}
 STATUS_LIVE = {"1H", "2H", "HT", "ET", "BT", "P", "INT"}
+
+# Maps each future match → (home_source, away_source)
+# Each source is (role: "winner"/"loser", match_id)
+_BRACKET: dict[str, tuple] = {
+    "QF-01": (("winner", "R16-01"), ("winner", "R16-02")),
+    "QF-02": (("winner", "R16-03"), ("winner", "R16-04")),
+    "QF-03": (("winner", "R16-05"), ("winner", "R16-06")),
+    "QF-04": (("winner", "R16-07"), ("winner", "R16-08")),
+    "SF-01": (("winner", "QF-01"),  ("winner", "QF-02")),
+    "SF-02": (("winner", "QF-03"),  ("winner", "QF-04")),
+    "TP-01": (("loser",  "SF-01"),  ("loser",  "SF-02")),
+    "F-01":  (("winner", "SF-01"),  ("winner", "SF-02")),
+}
+
+_ROUND_SHORT = {"R16": "Oct", "QF": "Ctos", "SF": "Semi"}
+
+
+def _bracket_label(role: str, src_id: str) -> str:
+    prefix, num = src_id.split("-")
+    rnd = _ROUND_SHORT.get(prefix, prefix)
+    role_es = "G." if role == "winner" else "Sub."
+    return f"{role_es} {rnd} {int(num)}"
+
+
+def _get_outcome(match: dict) -> tuple[str | None, str | None]:
+    """Return (winner, loser) for a finished match, or (None, None) if undecided."""
+    if match.get("status") not in STATUS_DONE:
+        return None, None
+    hs = match.get("home_score")
+    as_ = match.get("away_score")
+    if hs is None or as_ is None:
+        return None, None
+    home, away = match["home_team"], match["away_team"]
+    if hs > as_:
+        return home, away
+    if as_ > hs:
+        return away, home
+    # Tied after extra time / penalties: winner can't be derived from score alone
+    return None, None
+
+
+def resolve_bracket(matches: list) -> list:
+    """Replace TBD placeholders in knockout rounds with actual team names.
+
+    Processes rounds in dependency order (R16→QF→SF→F) so cascading works.
+    Adds 'bracket_home'/'bracket_away' labels on still-undecided slots.
+    """
+    result = [m.copy() for m in matches]
+    by_id = {m["match_id"]: m for m in result}
+
+    for match_id, ((role_h, src_h), (role_a, src_a)) in _BRACKET.items():
+        target = by_id.get(match_id)
+        if not target:
+            continue
+
+        for side, role, src_id, label_key in (
+            ("home_team", role_h, src_h, "bracket_home"),
+            ("away_team", role_a, src_a, "bracket_away"),
+        ):
+            if target[side] != "TBD":
+                continue
+            target[label_key] = _bracket_label(role, src_id)
+            src_m = by_id.get(src_id)
+            if not src_m:
+                continue
+            winner, loser = _get_outcome(src_m)
+            name = winner if role == "winner" else loser
+            if name:
+                target[side] = name
+                target.pop(label_key, None)
+
+    return result
 
 
 def get_group_standings(matches: list) -> dict:

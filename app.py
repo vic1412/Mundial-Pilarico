@@ -12,7 +12,7 @@ from database import (
 )
 from football_api import (
     get_matches, get_live_ids, fetch_api_matches, calculate_points, get_flag,
-    get_group_standings, GROUPS, STATUS_DONE, STATUS_LIVE,
+    get_group_standings, resolve_bracket, GROUPS, STATUS_DONE, STATUS_LIVE,
 )
 
 # ── Page config ─────────────────────────────────────────────────────────────
@@ -524,7 +524,7 @@ def render_match(m: dict, user_id: int, user_preds: dict, live_ids: set):
     status = m["status"]
     is_live = mid in live_ids or status in STATUS_LIVE
     is_done = status in STATUS_DONE
-    can_edit = not is_done and not is_live
+    can_edit = not is_done and not is_live and home != "TBD" and away != "TBD"
 
     pred   = user_preds.get(mid)
     pred_h = pred[0] if pred else 0
@@ -539,6 +539,11 @@ def render_match(m: dict, user_id: int, user_preds: dict, live_ids: set):
                   if hs is not None and as_ is not None
                   else '<div class="mc-vs">VS</div>')
 
+    home_disp = m.get("bracket_home", "Por definir") if home == "TBD" else home
+    away_disp = m.get("bracket_away", "Por definir") if away == "TBD" else away
+    home_flag = get_flag(home) if home != "TBD" else ""
+    away_flag = get_flag(away) if away != "TBD" else ""
+
     st.markdown(f"""
 <div class="match-card {card_cls}">
   <div class="mc-meta">
@@ -546,9 +551,9 @@ def render_match(m: dict, user_id: int, user_preds: dict, live_ids: set):
     <span>{fmt_date(m.get('match_date',''))} {live_html}</span>
   </div>
   <div class="mc-teams">
-    <div class="mc-home">{get_flag(home)}<span class="mc-tname">{home}</span></div>
+    <div class="mc-home">{home_flag}<span class="mc-tname">{home_disp}</span></div>
     {score_html}
-    <div class="mc-away"><span class="mc-tname">{away}</span>{get_flag(away)}</div>
+    <div class="mc-away"><span class="mc-tname">{away_disp}</span>{away_flag}</div>
   </div>
 </div>""", unsafe_allow_html=True)
 
@@ -860,8 +865,8 @@ def show_admin(current_user: dict, matches: list):
         # ── Match selector ──
         match_labels: dict[str, str] = {}
         for m in round_matches:
-            home = m["home_team"] if m["home_team"] != "TBD" else "Por definir"
-            away = m["away_team"] if m["away_team"] != "TBD" else "Por definir"
+            home = m["home_team"] if m["home_team"] != "TBD" else m.get("bracket_home", "Por definir")
+            away = m["away_team"] if m["away_team"] != "TBD" else m.get("bracket_away", "Por definir")
             grp  = m.get("group", "")
             date_str = fmt_date(m.get("match_date", ""))
 
@@ -892,8 +897,8 @@ def show_admin(current_user: dict, matches: list):
                 f"**{sel_m['away_team']}** [{sel_m['status']}]"
             )
 
-        home_name = sel_m["home_team"] if sel_m["home_team"] != "TBD" else "Local"
-        away_name = sel_m["away_team"] if sel_m["away_team"] != "TBD" else "Visitante"
+        home_name = sel_m["home_team"] if sel_m["home_team"] != "TBD" else sel_m.get("bracket_home", "Local")
+        away_name = sel_m["away_team"] if sel_m["away_team"] != "TBD" else sel_m.get("bracket_away", "Visitante")
         default_h  = int(sel_m["home_score"]) if sel_m["home_score"] is not None else 0
         default_a  = int(sel_m["away_score"]) if sel_m["away_score"] is not None else 0
         cur_status = sel_m["status"] if sel_m["status"] in _STATUS_OPTS else "FT"
@@ -971,6 +976,7 @@ def show_app():
 
     overrides   = get_match_results()
     matches     = apply_overrides(raw_matches, overrides)
+    matches     = resolve_bracket(matches)
     live_ids    = get_live_ids()
 
     pts, live_pts, _ = compute_user_stats(user["id"], matches, live_ids)
