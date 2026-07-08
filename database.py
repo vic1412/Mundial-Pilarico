@@ -94,6 +94,7 @@ def init_db():
                 away_score INTEGER NOT NULL,
                 status TEXT NOT NULL DEFAULT 'FT',
                 source TEXT NOT NULL DEFAULT 'manual',
+                penalty_winner TEXT,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
             CREATE TABLE IF NOT EXISTS sessions (
@@ -106,6 +107,10 @@ def init_db():
         # Migration: add source column if upgrading from older schema
         try:
             c.execute("ALTER TABLE match_results ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'")
+        except Exception:
+            pass
+        try:
+            c.execute("ALTER TABLE match_results ADD COLUMN penalty_winner TEXT")
         except Exception:
             pass
 
@@ -227,40 +232,43 @@ def get_all_predictions() -> list:
 
 # ── Match results ──────────────────────────────────────────────────────────
 
-def set_match_result(match_id: str, home_score: int, away_score: int, status: str = "FT", source: str = "manual"):
+def set_match_result(match_id: str, home_score: int, away_score: int, status: str = "FT", source: str = "manual", penalty_winner: str | None = None):
     if _use_supabase():
         db = _db()
         _sb(lambda: db.table("match_results").upsert(
             {"match_id": match_id, "home_score": home_score,
-             "away_score": away_score, "status": status, "source": source},
+             "away_score": away_score, "status": status, "source": source,
+             "penalty_winner": penalty_winner},
             on_conflict="match_id").execute())
         return
     with _conn() as c:
         c.execute("""
-            INSERT INTO match_results (match_id, home_score, away_score, status, source, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO match_results (match_id, home_score, away_score, status, source, penalty_winner, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(match_id) DO UPDATE SET
                 home_score=excluded.home_score,
                 away_score=excluded.away_score,
                 status=excluded.status,
                 source=excluded.source,
+                penalty_winner=excluded.penalty_winner,
                 updated_at=excluded.updated_at
-        """, (match_id, home_score, away_score, status, source, datetime.now().isoformat()))
+        """, (match_id, home_score, away_score, status, source, penalty_winner, datetime.now().isoformat()))
 
 
 def get_match_results() -> dict:
     if _use_supabase():
         db = _db()
         res = _sb(lambda: db.table("match_results")
-                  .select("match_id,home_score,away_score,status,source").execute())
+                  .select("match_id,home_score,away_score,status,source,penalty_winner").execute())
         results = {}
         for r in res.data:
             r.setdefault("source", "manual")
+            r.setdefault("penalty_winner", None)
             results[r["match_id"]] = r
         return results
     with _conn() as c:
         rows = c.execute(
-            "SELECT match_id, home_score, away_score, status, source FROM match_results"
+            "SELECT match_id, home_score, away_score, status, source, penalty_winner FROM match_results"
         ).fetchall()
     return {r["match_id"]: dict(r) for r in rows}
 

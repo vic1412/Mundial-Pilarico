@@ -249,9 +249,10 @@ def apply_overrides(matches: list, overrides: dict) -> list:
         mc = m.copy()
         if mc["match_id"] in overrides:
             ov = overrides[mc["match_id"]]
-            mc["home_score"] = ov["home_score"]
-            mc["away_score"] = ov["away_score"]
-            mc["status"]     = ov["status"]
+            mc["home_score"]     = ov["home_score"]
+            mc["away_score"]     = ov["away_score"]
+            mc["status"]         = ov["status"]
+            mc["penalty_winner"] = ov.get("penalty_winner")
         result.append(mc)
     return result
 
@@ -895,6 +896,13 @@ def show_admin(current_user: dict, matches: list):
                 f"Resultado actual ({src_label}): "
                 f"**{sel_m['home_team']}** {sel_m['home_score']} – {sel_m['away_score']} "
                 f"**{sel_m['away_team']}** [{sel_m['status']}]"
+                + (
+                    f" — **{sel_m['home_team']}** gana en penales"
+                    if overrides.get(sel_mid, {}).get("penalty_winner") == "home" else
+                    f" — **{sel_m['away_team']}** gana en penales"
+                    if overrides.get(sel_mid, {}).get("penalty_winner") == "away" else
+                    ""
+                )
             )
 
         home_name = sel_m["home_team"] if sel_m["home_team"] != "TBD" else sel_m.get("bracket_home", "Local")
@@ -915,11 +923,32 @@ def show_admin(current_user: dict, matches: list):
                 key="admin_sim_status",
             )
 
+        # Penalty winner selector — only shown when status=PEN and scores are tied
+        new_penalty_winner = None
+        if new_status == "PEN" and new_h == new_a:
+            cur_pw = overrides.get(sel_mid, {}).get("penalty_winner")
+            pens_opts = ["—", home_name, away_name]
+            default_pw_idx = (
+                1 if cur_pw == "home" else
+                2 if cur_pw == "away" else
+                0
+            )
+            pens_sel = st.selectbox(
+                "Ganador en penales", pens_opts,
+                index=default_pw_idx,
+                key="admin_pens_winner",
+            )
+            if pens_sel == home_name:
+                new_penalty_winner = "home"
+            elif pens_sel == away_name:
+                new_penalty_winner = "away"
+
         bc1, bc2 = st.columns(2)
         with bc1:
             if st.button("✅ Guardar resultado", key="admin_sim_apply", use_container_width=True):
-                set_match_result(sel_mid, int(new_h), int(new_a), new_status, source="manual")
-                st.success(f"✅ {home_name} {new_h}–{new_a} {away_name} ({new_status})")
+                set_match_result(sel_mid, int(new_h), int(new_a), new_status, source="manual", penalty_winner=new_penalty_winner)
+                pen_label = f" — {home_name if new_penalty_winner == 'home' else away_name} gana en penales" if new_penalty_winner else ""
+                st.success(f"✅ {home_name} {new_h}–{new_a} {away_name} ({new_status}){pen_label}")
                 st.rerun()
         with bc2:
             if sel_mid in overrides and overrides[sel_mid].get("source", "manual") == "manual":
@@ -946,9 +975,14 @@ def show_admin(current_user: dict, matches: list):
             home = m.get("home_team", mid)
             away = m.get("away_team", "")
             rnd  = m.get("round", "")
+            pen_info = ""
+            if ov.get("penalty_winner") == "home":
+                pen_info = f" ({home} gana en penales)"
+            elif ov.get("penalty_winner") == "away":
+                pen_info = f" ({away} gana en penales)"
             st.markdown(
                 f"- **{home}** {ov['home_score']}–{ov['away_score']} **{away}** "
-                f"[{ov['status']}]  ·  *{rnd}*"
+                f"[{ov['status']}]{pen_info}  ·  *{rnd}*"
             )
         if st.button("🗑️ Borrar todos los resultados manuales", key="clear_manual_all"):
             for mid in list(manual.keys()):

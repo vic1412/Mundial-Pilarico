@@ -447,7 +447,12 @@ def _get_outcome(match: dict) -> tuple[str | None, str | None]:
         return home, away
     if as_ > hs:
         return away, home
-    # Tied after extra time / penalties: winner can't be derived from score alone
+    # Tied: check penalty_winner (set manually by admin; penalty goals don't count in stats)
+    pw = match.get("penalty_winner")
+    if pw == "home":
+        return home, away
+    if pw == "away":
+        return away, home
     return None, None
 
 
