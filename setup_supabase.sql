@@ -19,16 +19,18 @@ CREATE TABLE IF NOT EXISTS predictions (
 );
 
 CREATE TABLE IF NOT EXISTS match_results (
-    match_id    TEXT PRIMARY KEY,
-    home_score  INTEGER NOT NULL,
-    away_score  INTEGER NOT NULL,
-    status      TEXT NOT NULL DEFAULT 'FT',
-    source      TEXT NOT NULL DEFAULT 'manual',
-    updated_at  TIMESTAMPTZ DEFAULT NOW()
+    match_id        TEXT PRIMARY KEY,
+    home_score      INTEGER NOT NULL,
+    away_score      INTEGER NOT NULL,
+    status          TEXT NOT NULL DEFAULT 'FT',
+    source          TEXT NOT NULL DEFAULT 'manual',
+    penalty_winner  TEXT,
+    updated_at      TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Si ya tenías la tabla creada, ejecuta esta migración por separado:
+-- Migraciones para tablas ya existentes (ejecuta solo si la tabla ya existe):
 -- ALTER TABLE match_results ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manual';
+-- ALTER TABLE match_results ADD COLUMN IF NOT EXISTS penalty_winner TEXT;
 
 CREATE TABLE IF NOT EXISTS sessions (
     token       TEXT PRIMARY KEY,
