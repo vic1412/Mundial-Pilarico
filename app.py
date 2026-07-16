@@ -318,12 +318,13 @@ def _compute_conf_stats(matches: list, round_filter=None) -> dict:
 
     result = {}
     for c in CONFS:
-        r = raw[c]; n = conf_n[c]
+        r = raw[c]
+        mp = r["mp"]
         result[c] = {
-            "avg_gf":  r["gf"] / n,
-            "avg_ga":  r["ga"] / n,
-            "avg_pts": r["pts"] / n,
-            "rend":    r["pts"] / (r["mp"] * 3) * 100 if r["mp"] > 0 else 0.0,
+            "avg_gf":  r["gf"]  / mp if mp > 0 else 0.0,
+            "avg_ga":  r["ga"]  / mp if mp > 0 else 0.0,
+            "avg_pts": r["pts"] / mp if mp > 0 else 0.0,
+            "rend":    r["pts"] / (mp * 3) * 100 if mp > 0 else 0.0,
         }
     return result
 
@@ -368,10 +369,10 @@ def _compute_vs_stats(matches: list, round_filter=None) -> dict:
 def _html_conf_table(stats: dict) -> str:
     hdr = (
         "<th style='text-align:left'>Confederación</th>"
-        "<th>⚽ Goles marcados (prom)</th>"
+        "<th>⚽ Goles marcados / partido</th>"
         "<th>📈 Rendimiento</th>"
-        "<th>🥅 Goles recibidos (prom)</th>"
-        "<th>🏅 Puntos (prom)</th>"
+        "<th>🥅 Goles recibidos / partido</th>"
+        "<th>🏅 Puntos / partido</th>"
     )
     rows = ""
     for c in CONFS:
@@ -779,11 +780,7 @@ def show_estadisticas(matches: list):
             else:
                 stats = _compute_conf_stats(matches, rf)
                 st.markdown(_html_conf_table(stats), unsafe_allow_html=True)
-                note = (
-                    "Prom = total / equipos de la confederación en esa ronda · Rendimiento = pts totales / pts posibles"
-                    if rf in _KNOCKOUT_ROUNDS
-                    else "Prom = total / equipos de la confederación · Rendimiento = pts totales / pts posibles"
-                )
+                note = "Valores por partido = total / partidos jugados por equipos de la confederación · Rendimiento = pts totales / pts posibles"
                 st.markdown(
                     f"<div style='margin-top:.6rem;font-size:.72rem;color:rgba(255,255,255,.3)'>{note}</div>",
                     unsafe_allow_html=True,
