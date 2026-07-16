@@ -418,8 +418,8 @@ _BRACKET: dict[str, tuple] = {
     "QF-02": (("winner", "R16-03"), ("winner", "R16-04")),
     "QF-03": (("winner", "R16-05"), ("winner", "R16-06")),
     "QF-04": (("winner", "R16-07"), ("winner", "R16-08")),
-    "SF-01": (("winner", "QF-01"),  ("winner", "QF-02")),
-    "SF-02": (("winner", "QF-03"),  ("winner", "QF-04")),
+    "SF-01": (("winner", "QF-01"),  ("winner", "QF-03")),
+    "SF-02": (("winner", "QF-02"),  ("winner", "QF-04")),
     "TP-01": (("loser",  "SF-01"),  ("loser",  "SF-02")),
     "F-01":  (("winner", "SF-01"),  ("winner", "SF-02")),
 }
